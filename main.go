@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/njcx/peppa_hids/collect"
+	"peppa_hids/collect"
 	"fmt"
 )
 
