@@ -5,11 +5,10 @@ package collect
 import (
 	"regexp"
 	"time"
-	//"yulong-hids/agent/common"
-
-)
+	)
 
 var allInfo = make(map[string][]map[string]string)
+
 
 var tagMap = map[string]string{
 	"web": `nginx|httpd|apache|tomcat|weblogic|jboss|jetty`,
@@ -52,6 +51,7 @@ func discern(info *ComputerInfo) {
 		}
 	}
 }
+
 
 func removeDuplicatesAndEmpty(list []string) (ret []string) {
 	listLen := len(list)

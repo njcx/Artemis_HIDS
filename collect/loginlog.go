@@ -11,7 +11,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-	//"yulong-hids/agent/common"
 )
 
 type utmp struct {
@@ -76,7 +75,7 @@ func getLastb(t string) (result []map[string]string) {
 	} else {
 		cmd = fmt.Sprintf("lastb -s %s --time-format iso", ti.Format("20060102150405"))
 	}
-	out := common.Cmdexec(cmd)
+	out := Cmdexec(cmd)
 	logList := strings.Split(out, "\n")
 	for _, v := range logList[0 : len(logList)-3] {
 		m := make(map[string]string)
@@ -96,7 +95,7 @@ func getLastb(t string) (result []map[string]string) {
 	return
 }
 func GetLoginLog() (resultData []map[string]string) {
-	resultData = getLast(common.Config.Lasttime)
-	resultData = append(resultData, getLastb(common.Config.Lasttime)...)
+	resultData = getLast(Config.Lasttime)
+	resultData = append(resultData, getLastb(Config.Lasttime)...)
 	return
 }

@@ -5,7 +5,6 @@ package collect
 import (
 	"regexp"
 	"strings"
-	//"yulong-hids/agent/common"
 )
 
 // GetListening 获取tcp端口监听端口

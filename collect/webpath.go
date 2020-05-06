@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	//"yulong-hids/agent/common"
 )
 
 // 待支持其他webserver

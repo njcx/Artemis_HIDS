@@ -4,11 +4,9 @@ import (
 	"log"
 	"os/exec"
 	"regexp"
-	//"runtime"
 	"strings"
-
-	//"github.com/axgle/mahonia"
 )
+
 
 // ClientConfig agent配置
 type ClientConfig struct {
@@ -49,15 +47,10 @@ var (
 func Cmdexec(cmd string) string {
 	var c *exec.Cmd
 	var data string
-	//system := runtime.GOOS
 	argArray := strings.Split(cmd, " ")
 	c = exec.Command(argArray[0], argArray[1:]...)
 	out, _ := c.CombinedOutput()
 	data = string(out)
-	//if system == "windows" {
-	//	dec := mahonia.NewDecoder("gbk")
-	//	data = dec.ConvertString(data)
-	//}
 	return data
 }
 
