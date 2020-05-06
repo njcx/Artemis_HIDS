@@ -1,1 +1,8 @@
-package peppa_hids
+package main
+
+import "peppa_hids/collect"
+
+func main()  {
+
+
+}

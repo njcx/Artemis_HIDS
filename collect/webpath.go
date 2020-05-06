@@ -8,14 +8,14 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"yulong-hids/agent/common"
+	//"yulong-hids/agent/common"
 )
 
 // 待支持其他webserver
 func getWebPath(webCommand string) ([]string, error) {
 	var pathList []string
 	if ok, _ := regexp.MatchString(`httpd|apache`, webCommand); ok {
-		out := common.Cmdexec("apachectl -V")
+		out := Cmdexec("apachectl -V")
 		if !strings.Contains(string(out), "SERVER_CONFIG_FILE") {
 			return pathList, errors.New("Get ConfigFilePath Error!")
 		}
@@ -34,7 +34,7 @@ func getWebPath(webCommand string) ([]string, error) {
 			}
 		}
 	} else if strings.Contains(webCommand, "nginx") {
-		out := common.Cmdexec("nginx -V")
+		out := Cmdexec("nginx -V")
 		regex, _ := regexp.Compile(`\-\-conf\-path\=(.*?)[ |$]`)
 		result := regex.FindStringSubmatch(out)
 		if len(result) >= 2 {

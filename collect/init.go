@@ -5,20 +5,21 @@ package collect
 import (
 	"regexp"
 	"time"
-	"yulong-hids/agent/common"
+	//"yulong-hids/agent/common"
+
 )
 
 var allInfo = make(map[string][]map[string]string)
 
 var tagMap = map[string]string{
-	"web": `nginx|httpd|apache|w3wp\.exe|tomcat|weblogic|jboss|jetty`,
-	"db":  `mysql|mongo|sqlservr\.exe|oracle|elasticsearch|postgres|redis|cassandra|teradata|solr|HMaster|hbase|mariadb`,
+	"web": `nginx|httpd|apache|tomcat|weblogic|jboss|jetty`,
+	"db":  `mysql|mongo|oracle|elasticsearch|postgres|redis|cassandra|teradata|solr|HMaster|hbase|mariadb`,
 }
 
 func init() {
 	go func() {
 		time.Sleep(time.Second * 3600)
-		common.ServerInfo = GetComInfo()
+		ServerInfo = GetComInfo()
 	}()
 }
 
@@ -34,7 +35,7 @@ func GetAllInfo() map[string][]map[string]string {
 	return allInfo
 }
 
-func discern(info *common.ComputerInfo) {
+func discern(info *ComputerInfo) {
 	for k, v := range tagMap {
 		for _, p := range GetProcessList() {
 			if p["command"] == "" {

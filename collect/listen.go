@@ -5,12 +5,12 @@ package collect
 import (
 	"regexp"
 	"strings"
-	"yulong-hids/agent/common"
+	//"yulong-hids/agent/common"
 )
 
 // GetListening 获取tcp端口监听端口
 func GetListening() (resultData []map[string]string) {
-	listeningStr := common.Cmdexec("ss -nltp")
+	listeningStr := Cmdexec("ss -nltp")
 	listeningList := strings.Split(listeningStr, "\n")
 	if len(listeningList) < 2 {
 		return

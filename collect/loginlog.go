@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
-	"yulong-hids/agent/common"
+	//"yulong-hids/agent/common"
 )
 
 type utmp struct {
