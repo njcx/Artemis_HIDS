@@ -1,24 +1,101 @@
 package scanner
 
 import (
-	"github.com/hillu/go-yara"
+
+	"github.com/Velocidex/go-yara"
 	"github.com/toolkits/slice"
+    "github.com/orcaman/concurrent-map"
 
-	"sec_check/logger"
-	"sec_check/lib"
-	"sec_check/collector"
-	"sec_check/vars"
-	"sec_check/models"
-
+	"peppa_hids/utils/log"
 	"os"
 	"sync"
 	"time"
 	"strings"
+	"path/filepath"
+	"sec_check/vars"
+	"sec_check/lib"
+	"sec_check/models"
+	"sec_check/collector"
 )
 
-type Scanner struct {
-	Rules *yara.Rules
+
+
+var (
+	Debug    bool
+	Verbose  bool
+	RulePath = "rules"
+	RulesDb  = "rules.db"
+
+	Addr = "127.0.0.1"
+	Port = 8000
+
+	ProcessResultMap = cmap.New()
+	FileResultMap    = cmap.New()
+
+	CurrentDir = ""
+)
+
+
+
+type (
+
+	Scanner struct {
+		Rules *yara.Rules
+	}
+
+	ProcessScanResult struct {
+		Pid     int
+		Matches []yara.MatchRule
+	}
+
+	ProcessResult struct {
+		Pid         int
+		Path        string
+		Namespace   string
+		Rule        string
+		Description string
+	}
+
+	FileScanResult struct {
+		FileName string
+		Matches  []yara.MatchRule
+	}
+
+	FileResult struct {
+		Filename    string
+		Namespace   string
+		Rule        string
+		Description string
+	}
+)
+
+
+func GetFiles(filePath string) (Files []string, err error) {
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return Files, err
+	}
+	rulesStat, _ := os.Stat(filePath)
+	switch mode := rulesStat.Mode(); {
+	case mode.IsDir():
+		err = filepath.Walk(filePath, func(filePath string, fileObj os.FileInfo, err error) error {
+			rulesObj, err := os.Open(filePath)
+			defer rulesObj.Close()
+			if err == nil {
+				Files = append(Files, filePath)
+			}
+			return nil
+		})
+	case mode.IsRegular():
+		rulesObj, err := os.Open(filePath)
+		defer rulesObj.Close()
+		if err == nil {
+			Files = append(Files, filePath)
+		}
+	}
+	return Files, err
 }
+
+
 
 func NewScanner(rulesData string) (*Scanner, error) {
 	rules, err := LoadRules(rulesData)
@@ -30,36 +107,27 @@ func LoadRules(rulesData string) (*yara.Rules, error) {
 	return rules, err
 }
 
-func (s *Scanner) ScanFile(filename string) (error, *models.FileScanResult) {
-	if vars.Verbose {
-		logger.Log.Debugf("checking file: %v", filename)
+func (s *Scanner) ScanFile(filename string) (error, *FileScanResult) {
+	if Verbose {
+		log.Log.Debugf("checking file: %v", filename)
 	}
 	matches, err := s.Rules.ScanFile(filename, 0, 10)
-	result := &models.FileScanResult{FileName: filename, Matches: matches}
+	result := &FileScanResult{FileName: filename, Matches: matches}
 	return err, result
 }
 
 func (s *Scanner) ScanFiles(filename string) {
-	files, err := lib.GetFiles(filename)
+	files, err := GetFiles(filename)
 	if err == nil {
-		//var wg sync.WaitGroup
-		// wg.Add(len(files))
-		// go-yara不是协程安全的，并发模式不可用，改为普通的循环
 		for _, f := range files {
 			models.SaveFileResult(s.ScanFile(f))
-			//wg.Add(1)
-			//go func(filename string) {
-			//	defer wg.Done()
-			//	models.SaveFileResult(s.ScanFile(filename))
-			//}(f)
-			//waitTimeout(&wg, 60)
 		}
 	}
 }
 
 func (s *Scanner) ScanProcess(pid int) (error, *models.ProcessScanResult) {
-	if vars.Verbose {
-		logger.Log.Debugf("checking pid: %v", pid)
+	if Verbose {
+		log.Log.Debugf("checking pid: %v", pid)
 	}
 	matches, err := s.Rules.ScanProc(pid, 0, 10)
 	result := &models.ProcessScanResult{Pid: pid, Matches: matches}
@@ -68,14 +136,9 @@ func (s *Scanner) ScanProcess(pid int) (error, *models.ProcessScanResult) {
 
 func (s *Scanner) ScanProcesses() {
 	pss := collector.GetProcess()
-	//var wg sync.WaitGroup
-	// wg.Add(len(pss))
-	// go-yara不是协程安全的，并发模式不可用，改为普通的循环
 	for _, ps := range pss.Process {
-		//wg.Add(1)
 		pid := os.Getpid()
 		if pid == ps.PPID {
-			//wg.Done()
 			continue
 		}
 		t := strings.Split(ps.Path, "/")
@@ -84,18 +147,10 @@ func (s *Scanner) ScanProcesses() {
 		if !slice.ContainsString(whiteList, tt) {
 			models.SaveProcessResult(s.ScanProcess(ps.PID))
 		}
-
-		//go func(pid int) {
-		//	defer wg.Done()
-		//	models.SaveProcessResult(s.ScanProcess(pid))
-		//}(ps.PID)
-		//waitTimeout(&wg, 60)
 	}
 
 }
 
-// waitTimeout waits for the waitgroup for the specified max timeout.
-// Returns true if waiting timed out.
 func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 	c := make(chan struct{})
 	go func() {
