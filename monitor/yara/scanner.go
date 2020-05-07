@@ -1,10 +1,10 @@
-package scanner
+package yara
 
 import (
 
 	"github.com/Velocidex/go-yara"
 	"github.com/toolkits/slice"
-    "github.com/orcaman/concurrent-map"
+    cmap "github.com/orcaman/concurrent-map"
 
 	"peppa_hids/utils/log"
 	"os"
@@ -12,8 +12,6 @@ import (
 	"time"
 	"strings"
 	"path/filepath"
-	"sec_check/vars"
-	"sec_check/lib"
 	"sec_check/models"
 	"sec_check/collector"
 )
@@ -37,37 +35,11 @@ var (
 
 
 
-type (
-
-	Scanner struct {
+type Scanner struct {
 		Rules *yara.Rules
 	}
 
-	ProcessScanResult struct {
-		Pid     int
-		Matches []yara.MatchRule
-	}
 
-	ProcessResult struct {
-		Pid         int
-		Path        string
-		Namespace   string
-		Rule        string
-		Description string
-	}
-
-	FileScanResult struct {
-		FileName string
-		Matches  []yara.MatchRule
-	}
-
-	FileResult struct {
-		Filename    string
-		Namespace   string
-		Rule        string
-		Description string
-	}
-)
 
 
 func GetFiles(filePath string) (Files []string, err error) {
