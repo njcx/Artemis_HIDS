@@ -1,63 +1,76 @@
-package main
+//package main
+//
+//import (
+//	"net"
+//	"os"
+//	"fmt"
+//)
 
-
+//import (
+//"fmt"
+//"html"
+//"log"
+//"net/http"
 //
-//func main()  {
-//	//
-//	//info := collect.GetAllInfo()
-//	//
-//	//fmt.Println(info)
+//"github.com/sevlyar/go-daemon"
+//)
 //
+//// To terminate the daemon use:
+////  kill `cat sample.pid`
+//func main() {
 //
+//	cntxt := &daemon.Context{
+//		PidFileName: "sample.pid",
+//		PidFilePerm: 0644,
+//		LogFileName: "sample.log",
+//		LogFilePerm: 0640,
+//		WorkDir:     "./",
+//		Umask:       027,
+//		Args:        []string{"[go-daemon sample]"},
+//	}
 //
+//	d, err := cntxt.Reborn()
+//	if err != nil {
+//		log.Fatal("Unable to run: ", err)
+//	}
+//	if d != nil {
+//		return
+//	}
+//	defer cntxt.Release()
+//
+//	log.Print("- - - - - - - - - - - - - - -")
+//	log.Print("daemon started")
+//
+//	serveHTTP()
 //}
 //
-//package main
+//func serveHTTP() {
+//	http.HandleFunc("/", httpHandler)
+//	http.ListenAndServe("127.0.0.1:8080", nil)
+//}
+//
+//func httpHandler(w http.ResponseWriter, r *http.Request) {
+//	log.Printf("request from %s: %s %q", r.RemoteAddr, r.Method, r.URL)
+//	fmt.Fprintf(w, "go-daemon: %q", html.EscapeString(r.URL.Path))
+//}
+
+package main
 
 import (
-"fmt"
-"html"
-"log"
-"net/http"
+	"fmt"
+	"log"
 
-"github.com/sevlyar/go-daemon"
+	"github.com/takama/daemon"
 )
 
-// To terminate the daemon use:
-//  kill `cat sample.pid`
 func main() {
-
-	cntxt := &daemon.Context{
-		PidFileName: "sample.pid",
-		PidFilePerm: 0644,
-		LogFileName: "sample.log",
-		LogFilePerm: 0640,
-		WorkDir:     "./",
-		Umask:       027,
-		Args:        []string{"[go-daemon sample]"},
-	}
-
-	d, err := cntxt.Reborn()
+	service, err := daemon.New("name", "description", "aa")
 	if err != nil {
-		log.Fatal("Unable to run: ", err)
+		log.Fatal("Error: ", err)
 	}
-	if d != nil {
-		return
+	status, err := service.Install()
+	if err != nil {
+		log.Fatal(status, "\nError: ", err)
 	}
-	defer cntxt.Release()
-
-	log.Print("- - - - - - - - - - - - - - -")
-	log.Print("daemon started")
-
-	serveHTTP()
-}
-
-func serveHTTP() {
-	http.HandleFunc("/", httpHandler)
-	http.ListenAndServe("127.0.0.1:8080", nil)
-}
-
-func httpHandler(w http.ResponseWriter, r *http.Request) {
-	log.Printf("request from %s: %s %q", r.RemoteAddr, r.Method, r.URL)
-	fmt.Fprintf(w, "go-daemon: %q", html.EscapeString(r.URL.Path))
+	fmt.Println(status)
 }

@@ -135,6 +135,7 @@ func (lc *LogConsumer) Open() error {
 	return nil
 }
 
+
 func (lc *LogConsumer) Close() {
 	if lc.IsOpen == false {
 		return
