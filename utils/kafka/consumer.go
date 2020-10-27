@@ -1,4 +1,4 @@
-package main
+package kafka
 
 import (
 	"context"
@@ -56,22 +56,6 @@ func (k *KafkaReader) runPoller() {
 		k.message <- m
 
 		fmt.Println(string(m.Value))
-
-	}
-}
-
-func main() {
-	// get kafka reader using environment variables.
-	kafkaURL := "10.10.128.235:9093" //os.Getenv("kafkaURL")
-	topic := "hids"                  //os.Getenv("topic")
-
-	groupID := "nj" //os.Getenv("groupID")
-
-	kafkaClient := NewKakfaReader(kafkaURL, topic, groupID)
-	go kafkaClient.runPoller()
-
-	for i := range kafkaClient.message {
-		fmt.Println(string(i.Value))
 
 	}
 }

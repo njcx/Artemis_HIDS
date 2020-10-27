@@ -1,4 +1,4 @@
-package main
+package kafka
 
 import (
 	"context"
@@ -35,7 +35,7 @@ func NewKafkaProducer(kafkaURL, topic string) *Producer {
 }
 
 
-func (p *Producer) addMessage(message string)  {
+func (p *Producer) AddMessage(message string)  {
 	msg := kafka.Message{
 		Value: []byte(message),
 	}
@@ -45,22 +45,8 @@ func (p *Producer) addMessage(message string)  {
 	}
 }
 
-func (p *Producer) close()  {
+func (p *Producer) Close()  {
 	p.producer.Close()
 }
 
-
-
-func main() {
-	// get kafka writer using environment variables.
-	kafkaURL := "10.10.128.235:9093" //os.Getenv("kafkaURL")
-	topic := "hids" //os.Getenv("topic")
-
-	kafkaClient := NewKafkaProducer(kafkaURL,topic)
-
-	for {
-		kafkaClient.addMessage("test")
-
-	}
-}
 
