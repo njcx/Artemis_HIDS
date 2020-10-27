@@ -1,0 +1,89 @@
+package main
+
+import (
+"encoding/json"
+"errors"
+kafka "github.com/confluentinc/confluent-kafka-go/kafka"
+"log"
+"strings"
+"time"
+)
+
+
+type LogSpec struct {
+	Log        string         `json:"log"`
+	Stream     string         `json:"stream"`
+	Time       time.Time      `json:"time"`
+	Space      string         `json:"space"`
+	Docker     DockerSpec     `json:"docker"`
+	Kubernetes KubernetesSpec `json:"kubernetes"`
+	Topic      string         `json:"topic"`
+	Tag        string         `json:"tag"`
+	Site       string         `json:"site,omitempty"`
+	SitePath   string         `json:"site,omitempty"`
+	Path   string         	  `json:"site,omitempty"`
+}
+
+func CreateProducer(kafkaAddrs []string, kafkaGroup string) *kafka.Producer {
+	c, err := kafka.NewProducer(&kafka.ConfigMap{
+		"bootstrap.servers":  strings.Join(kafkaAddrs, ","),
+		"group.id":           kafkaGroup,
+		"session.timeout.ms": 6000,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	return c
+}
+
+type LogProducer struct {
+	IsOpen   bool
+	address  []string
+	group    string
+	producer *kafka.Producer
+}
+
+func (lp *LogProducer) AddLog(message LogSpec) error {
+	bytes, err := json.Marshal(message)
+	if err != nil {
+		return err
+	}
+	return lp.producer.Produce(&kafka.Message{
+		TopicPartition: kafka.TopicPartition{Topic: &message.Topic, Partition: kafka.PartitionAny},
+		Value:          bytes,
+		Headers:        []kafka.Header{},
+	}, nil)
+}
+
+
+func (lp *LogProducer) Init(kafkaAddrs []string, kafkaGroup string) {
+	lp.address = kafkaAddrs
+	lp.group = kafkaGroup
+	lp.Open()
+}
+
+
+func (lp *LogProducer) Open() error {
+	if lp.IsOpen == true {
+		return errors.New("Unable to open log consumer, its already open.")
+	}
+	if lp.address == nil || len(lp.address) == 0 {
+		return errors.New("invalid address")
+	}
+	if lp.group == "" {
+		return errors.New("invalid group")
+	}
+	lp.producer = CreateProducer(lp.address, lp.group)
+	lp.IsOpen = true
+	return nil
+}
+
+
+func (lp *LogProducer) Close() {
+	if lp.IsOpen == false {
+		return
+	}
+	lp.producer.Close()
+	lp.IsOpen = false
+}
+

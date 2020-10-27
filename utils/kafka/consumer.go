@@ -1,145 +1,77 @@
-package kafka
+package main
 
 import (
-	"errors"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"context"
 	"log"
+	//"os"
 	"strings"
+
+	kafka "github.com/segmentio/kafka-go"
+	"fmt"
 )
 
-type Process struct {
-	App  string `json:"app"`
-	Type string `json:"type"`
+type KafkaReader struct {
+
+	address  string    //"127.0.0.1:9092,127.0.0.1:9093,127.0.0.1:9094"
+	topic    string
+	message    chan kafka.Message
+	reader *kafka.Reader
+
 }
 
-func CreateConsumerCluster(kafkaAddrs []string, kafkaGroup string) *kafka.Consumer {
-	config := kafka.ConfigMap{
-		"bootstrap.servers":       strings.Join(kafkaAddrs, ","),
-		"group.id":                kafkaGroup,
-		"enable.auto.commit":      true,
-		"auto.commit.interval.ms": 1000,
-		"session.timeout.ms":      30000,
-		"socket.keepalive.enable": true,
-	}
 
-	c, err := kafka.NewConsumer(&config)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return c
+func getKafkaReader(kafkaURL, topic, groupID string) *kafka.Reader {
+	brokers := strings.Split(kafkaURL, ",")
+	return kafka.NewReader(kafka.ReaderConfig{
+		Brokers:  brokers,
+		GroupID:  groupID,
+		Topic:    topic,
+		MinBytes: 10e1,
+		MaxBytes: 10e6,
+	})
 }
 
-type LogConsumer struct {
-	kafkaConsumer *kafka.Consumer
-	AppLogs       chan *kafka.Message
-	BuildLogs     chan *kafka.Message
-	WebLogs       chan *kafka.Message
-	IstioWebLogs  chan *kafka.Message
-	IsOpen        bool
-	address       []string
-	group         string
+func NewKakfaReader(kafkaURL, topic, groupID string) *KafkaReader {
+
+	k := new(KafkaReader)
+	k.topic = kafkaURL
+	k.address = topic
+	k.reader = getKafkaReader(kafkaURL, topic, groupID)
+	return k
+
 }
 
-func (lc *LogConsumer) Init(kafkaAddrs []string, kafkaGroup string) {
-	lc.address = kafkaAddrs
-	lc.group = kafkaGroup
-	err := lc.Open()
-	if err != nil {
-		log.Fatalln("Cannot open connection to kafka: ", err)
-	}
+func (k *KafkaReader) lose()  {
+	k.reader.Close()
 }
 
-func (lc *LogConsumer) MarkOffset(msg *kafka.Message) {
-	if lc.IsOpen == false {
-		return
-	}
-	lc.kafkaConsumer.CommitMessage(msg)
-}
 
-func (lc *LogConsumer) runPooler() {
-	for lc.IsOpen == true {
-		ev := lc.kafkaConsumer.Poll(100)
-		if ev == nil {
-			continue
+func (k *KafkaReader) runPoller() {
+
+	for {
+		m, err := k.reader.ReadMessage(context.Background())
+		if err != nil {
+			log.Fatalln(err)
 		}
-		switch msg := ev.(type) {
-		case *kafka.Message:
-			if strings.HasPrefix(*msg.TopicPartition.Topic, "_") == true {
-				continue
-			} else if *msg.TopicPartition.Topic == "alamoweblogs" {
-				lc.WebLogs <- msg
-			} else if *msg.TopicPartition.Topic == "istio-access-logs" {
-				lc.IstioWebLogs <- msg
-			} else if *msg.TopicPartition.Topic == "alamobuildlogs" {
-				lc.BuildLogs <- msg
-			} else {
-				lc.AppLogs <- msg
-			}
-		case kafka.Error:
-			log.Printf("%% Error: %v\n", msg)
-			lc.IsOpen = false
-			var count = 0
-			for lc.kafkaConsumer.Poll(10) != nil && count < 100 {
-				// Do nothing, see: https://github.com/confluentinc/confluent-kafka-go/issues/189
-				count++
-			}
-			if count == 100 {
-				log.Fatalln("Error: Cannot drain pool to close consumer, hard stop.")
-			}
-			lc.kafkaConsumer.Close()
-			lc.kafkaConsumer = CreateConsumerCluster(lc.address, lc.group)
-			err := lc.kafkaConsumer.SubscribeTopics([]string{"^.*$"}, nil)
-			if err != nil {
-				log.Fatalln("Fatal, cannot recover from", err)
-			}
-			lc.IsOpen = true
-			log.Printf("Recovered, resuming listening.")
-		default:
-			// do nothing, ignore the message.
-		}
+		k.message <- m
+
+		fmt.Println(string(m.Value))
+
 	}
 }
 
-func (lc *LogConsumer) Refresh() error {
-	if lc.IsOpen == false {
-		return nil
-	}
-	err := lc.kafkaConsumer.SubscribeTopics([]string{"^.*$"}, nil)
-	if err != nil {
-		log.Println("Error listening to all topics", err)
-	}
-	return err
-}
+func main() {
+	// get kafka reader using environment variables.
+	kafkaURL := "10.10.128.235:9093" //os.Getenv("kafkaURL")
+	topic := "hids"                  //os.Getenv("topic")
 
-func (lc *LogConsumer) Open() error {
-	if lc.IsOpen == true {
-		return errors.New("Unable to open log consumer, its already open.")
-	}
-	if lc.address == nil {
-		return errors.New("invalid address")
-	}
-	if lc.group == "" {
-		return errors.New("invalid group")
-	}
-	lc.kafkaConsumer = CreateConsumerCluster(lc.address, lc.group)
-	err := lc.kafkaConsumer.SubscribeTopics([]string{"^.*$"}, nil)
-	if err != nil {
-		log.Println("Error listening to all topics", err)
-	}
-	lc.AppLogs = make(chan *kafka.Message)
-	lc.BuildLogs = make(chan *kafka.Message)
-	lc.WebLogs = make(chan *kafka.Message)
-	lc.IstioWebLogs = make(chan *kafka.Message)
-	lc.IsOpen = true
-	go lc.runPooler()
-	return nil
-}
+	groupID := "nj" //os.Getenv("groupID")
 
+	kafkaClient := NewKakfaReader(kafkaURL, topic, groupID)
+	go kafkaClient.runPoller()
 
-func (lc *LogConsumer) Close() {
-	if lc.IsOpen == false {
-		return
+	for i := range kafkaClient.message {
+		fmt.Println(string(i.Value))
+
 	}
-	lc.IsOpen = false
-	lc.kafkaConsumer.Close()
 }

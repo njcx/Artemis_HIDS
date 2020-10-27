@@ -1,88 +1,66 @@
-package kafka
+package main
 
 import (
-	"encoding/json"
-	"errors"
-	kafka "github.com/confluentinc/confluent-kafka-go/kafka"
-	"log"
+	"context"
+	"fmt"
+	kafka "github.com/segmentio/kafka-go"
 	"strings"
-	"time"
 )
 
 
-type LogSpec struct {
-	Log        string         `json:"log"`
-	Stream     string         `json:"stream"`
-	Time       time.Time      `json:"time"`
-	Space      string         `json:"space"`
-	Docker     DockerSpec     `json:"docker"`
-	Kubernetes KubernetesSpec `json:"kubernetes"`
-	Topic      string         `json:"topic"`
-	Tag        string         `json:"tag"`
-	Site       string         `json:"site,omitempty"`
-	SitePath   string         `json:"site,omitempty"`
-	Path   string         	  `json:"site,omitempty"`
+type Producer struct {
+	address  string    //"127.0.0.1:9092,127.0.0.1:9093,127.0.0.1:9094"
+	topic string
+	producer *kafka.Writer
 }
 
-func CreateProducer(kafkaAddrs []string, kafkaGroup string) *kafka.Producer {
-	c, err := kafka.NewProducer(&kafka.ConfigMap{
-		"bootstrap.servers":  strings.Join(kafkaAddrs, ","),
-		"group.id":           kafkaGroup,
-		"session.timeout.ms": 6000,
+
+func newKafkaWriter(kafkaURL, topic string) *kafka.Writer {
+	return kafka.NewWriter(kafka.WriterConfig{
+		Brokers:  strings.Split(kafkaURL, ","),
+		Topic:    topic,
+		BatchSize :5,
+		Async : true,
+		Balancer: &kafka.LeastBytes{},
 	})
+}
+
+func NewKafkaProducer(kafkaURL, topic string) *Producer {
+
+	p := new(Producer)
+	p.address = kafkaURL   //"127.0.0.1:9092,127.0.0.1:9093,127.0.0.1:9094"
+	p.topic = topic
+	p.producer = newKafkaWriter(p.address,p.topic)
+	return p
+}
+
+
+func (p *Producer) addMessage(message string)  {
+	msg := kafka.Message{
+		Value: []byte(message),
+	}
+	err := p.producer.WriteMessages(context.Background(), msg)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
 	}
-	return c
 }
 
-type LogProducer struct {
-	IsOpen   bool
-	address  []string
-	group    string
-	producer *kafka.Producer
-}
-
-func (lp *LogProducer) AddLog(message LogSpec) error {
-	bytes, err := json.Marshal(message)
-	if err != nil {
-		return err
-	}
-	return lp.producer.Produce(&kafka.Message{
-		TopicPartition: kafka.TopicPartition{Topic: &message.Topic, Partition: kafka.PartitionAny},
-		Value:          bytes,
-		Headers:        []kafka.Header{},
-	}, nil)
+func (p *Producer) close()  {
+	p.producer.Close()
 }
 
 
-func (lp *LogProducer) Init(kafkaAddrs []string, kafkaGroup string) {
-	lp.address = kafkaAddrs
-	lp.group = kafkaGroup
-	lp.Open()
+
+func main() {
+	// get kafka writer using environment variables.
+	kafkaURL := "10.10.128.235:9093" //os.Getenv("kafkaURL")
+	topic := "hids" //os.Getenv("topic")
+
+	kafkaClient := NewKafkaProducer(kafkaURL,topic)
+
+	for {
+		kafkaClient.addMessage("test")
+
+	}
 }
 
-
-func (lp *LogProducer) Open() error {
-	if lp.IsOpen == true {
-		return errors.New("Unable to open log consumer, its already open.")
-	}
-	if lp.address == nil || len(lp.address) == 0 {
-		return errors.New("invalid address")
-	}
-	if lp.group == "" {
-		return errors.New("invalid group")
-	}
-	lp.producer = CreateProducer(lp.address, lp.group)
-	lp.IsOpen = true
-	return nil
-}
-
-
-func (lp *LogProducer) Close() {
-	if lp.IsOpen == false {
-		return
-	}
-	lp.producer.Close()
-	lp.IsOpen = false
-}
