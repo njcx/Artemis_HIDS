@@ -13,7 +13,7 @@ var (
 )
 
 func init(){
-	errFile,err:=os.OpenFile("/logs/agent.log",os.O_CREATE|os.O_WRONLY|os.O_APPEND,0666)
+	errFile,err:=os.OpenFile("/var/logs/p_agent.log",os.O_CREATE|os.O_WRONLY|os.O_APPEND,0666)
 	if err!=nil{
 		log.Fatalln("打开日志文件失败：",err)
 	}
