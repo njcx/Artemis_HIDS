@@ -1,76 +1,83 @@
-//package main
-//
-//import (
-//	"net"
-//	"os"
-//	"fmt"
-//)
-
-//import (
-//"fmt"
-//"html"
-//"log"
-//"net/http"
-//
-//"github.com/sevlyar/go-daemon"
-//)
-//
-//// To terminate the daemon use:
-////  kill `cat sample.pid`
-//func main() {
-//
-//	cntxt := &daemon.Context{
-//		PidFileName: "sample.pid",
-//		PidFilePerm: 0644,
-//		LogFileName: "sample.log",
-//		LogFilePerm: 0640,
-//		WorkDir:     "./",
-//		Umask:       027,
-//		Args:        []string{"[go-daemon sample]"},
-//	}
-//
-//	d, err := cntxt.Reborn()
-//	if err != nil {
-//		log.Fatal("Unable to run: ", err)
-//	}
-//	if d != nil {
-//		return
-//	}
-//	defer cntxt.Release()
-//
-//	log.Print("- - - - - - - - - - - - - - -")
-//	log.Print("daemon started")
-//
-//	serveHTTP()
-//}
-//
-//func serveHTTP() {
-//	http.HandleFunc("/", httpHandler)
-//	http.ListenAndServe("127.0.0.1:8080", nil)
-//}
-//
-//func httpHandler(w http.ResponseWriter, r *http.Request) {
-//	log.Printf("request from %s: %s %q", r.RemoteAddr, r.Method, r.URL)
-//	fmt.Fprintf(w, "go-daemon: %q", html.EscapeString(r.URL.Path))
-//}
-
 package main
 
 import (
-	"fmt"
-	"log"
-
-	"github.com/takama/daemon"
+"fmt"
+"log"
+"os"
+"os/signal"
+"syscall"
+"github.com/takama/daemon"
 )
 
-func main() {
-	service, err := daemon.New("name", "description", "aa")
-	if err != nil {
-		log.Fatal("Error: ", err)
+const (
+	name        = "p-agent"
+	description = "P-Agent Service"
+)
+
+var dependencies = []string{"p-agent.service"}
+
+var stdlog, errlog *log.Logger
+
+type Service struct {
+	daemon.Daemon
+}
+
+func (service *Service) Manage() (string, error) {
+
+	usage := "Usage: ./p-agent  install | remove | start | stop | status"
+
+	if len(os.Args) > 1 {
+		command := os.Args[1]
+		switch command {
+		case "install":
+			return service.Install()
+		case "remove":
+			return service.Remove()
+		case "start":
+			return service.Start()
+		case "stop":
+			return service.Stop()
+		case "status":
+			return service.Status()
+		default:
+			return usage, nil
+		}
 	}
-	status, err := service.Install()
+
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt, os.Kill, syscall.SIGTERM)
+
+	for {
+		select {
+		case killSignal := <-interrupt:
+			stdlog.Println("Got signal:", killSignal)
+			if killSignal == os.Interrupt {
+				return "Daemon was interruped by system signal", nil
+			}
+			return "Daemon was killed", nil
+		}
+	}
+
+	return usage, nil
+}
+
+
+func init() {
+	stdlog = log.New(os.Stdout, "", log.Ldate|log.Ltime)
+	errlog = log.New(os.Stderr, "", log.Ldate|log.Ltime)
+}
+
+func main() {
+	srv, err := daemon.New(name, description, daemon.SystemDaemon, dependencies...)
 	if err != nil {
-		log.Fatal(status, "\nError: ", err)
+		errlog.Println("Error: ", err)
+		os.Exit(1)
+	}
+	service := &Service{srv}
+	status, err := service.Manage()
+	if err != nil {
+		errlog.Println(status, "\nError: ", err)
+		os.Exit(1)
 	}
 	fmt.Println(status)
 }
