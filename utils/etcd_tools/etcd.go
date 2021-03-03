@@ -46,9 +46,11 @@ func main() {
 		fmt.Println("get failed, err:", err)
 		return
 	}
-	for _, ev := range resp.Kvs {
+
+	ev:=resp.Kvs[0]
+	//for _, ev := range resp.Kvs {
 		fmt.Printf("%s : %s\n", ev.Key, ev.Value)
-	}
+	//}
 
 	//测试redis
 }
