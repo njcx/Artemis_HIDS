@@ -23,14 +23,6 @@ type ClientConfig struct {
 	Lasttime    string   // 最后一条登录日志时间
 }
 
-// ComputerInfo 计算机信息结构
-type ComputerInfo struct {
-	IP       string   // IP地址
-	System   string   // 操作系统
-	Hostname string   // 计算机名
-	Type     string   // 服务器类型
-	Path     []string // WEB目录
-}
 
 var (
 	// Config 配置信息

@@ -11,8 +11,8 @@ import (
 "time"
 "peppa_hids/collect"
 "peppa_hids/monitor"
+"yulong-hids/agent/common"
 
-	"yulong-hids/agent/common"
 )
 
 var err error
@@ -36,7 +36,6 @@ type Agent struct {
 	IsDebug      bool           // 是否开启debug模式，debug模式打印传输内容和报错信息
 	ctx          context.Context
 }
-
 
 
 func (a *Agent) init() {
@@ -63,7 +62,7 @@ func (a Agent) setLocalIP(ip string) {
 		panic(1)
 	}
 	defer conn.Close()
-	common.LocalIP = strings.Split(conn.LocalAddr().String(), ":")[0]
+	collect.LocalIP = strings.Split(conn.LocalAddr().String(), ":")[0]
 }
 
 func (a *Agent) monitor() {

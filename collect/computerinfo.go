@@ -6,6 +6,16 @@ import (
 	"strings"
 )
 
+// ComputerInfo 计算机信息结构
+type ComputerInfo struct {
+	IP       string   // IP地址
+	System   string   // 操作系统
+	Hostname string   // 计算机名
+	Type     string   // 服务器类型
+	Path     []string // WEB目录
+}
+
+
 // GetComInfo 获取计算机信息
 func GetComInfo() (info ComputerInfo) {
 	info.IP = LocalIP

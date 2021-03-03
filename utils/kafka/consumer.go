@@ -3,7 +3,6 @@ package kafka
 import (
 	"context"
 	"log"
-	//"os"
 	"strings"
 
 	kafka "github.com/segmentio/kafka-go"
