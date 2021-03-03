@@ -1,4 +1,4 @@
-package etcd_tools
+package main
 
 
 import (
@@ -11,8 +11,7 @@ import (
 func main() {
 
 	cli, err := clientv3.New(clientv3.Config{
-		Endpoints:   []string{"localhost:2379", "localhost:22379", "localhost:32379"},
-		// Endpoints:   []string{"localhost:4001"},
+		Endpoints:   []string{"10.10.116.190:2379"},
 		DialTimeout: 5 * time.Second,
 	})
 	if err != nil {
@@ -40,7 +39,7 @@ func main() {
 	//取值，设置超时为1秒
 	ctx, _ = context.WithTimeout(context.Background(), 10*time.Second)
 	t1= time.Now()
-	resp, err := cli.Get(ctx, "key")
+	resp, err := cli.Get(ctx, "/hids/kafka/host")
 	fmt.Println("get 耗时:",time.Now().Sub(t1))
 	// 	cancel()
 	if err != nil {

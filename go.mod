@@ -3,6 +3,8 @@ module peppa_hids
 go 1.14
 
 require (
+	github.com/coreos/etcd v2.3.8+incompatible // indirect
+	github.com/etcd-io/etcd v2.3.8+incompatible // indirect
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/gxlog/gxlog v0.7.0 // indirect
 	github.com/json-iterator/go v1.1.10 // indirect

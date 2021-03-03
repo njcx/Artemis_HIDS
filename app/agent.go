@@ -12,14 +12,18 @@ import (
 "peppa_hids/collect"
 "peppa_hids/monitor"
 "yulong-hids/agent/common"
+"github.com/etcd-io/etcd/clientv3"
 
 )
+
+var etcd  = []string{"10.10.116.190:2379"}
 
 var err error
 
 var (
 	LocalIP string
 )
+
 
 
 type dataInfo struct {
@@ -44,6 +48,28 @@ func (a *Agent) init() {
 		a.log("Can not get local address")
 		panic(1)
 	}
+
+
+	cli, err := clientv3.New(clientv3.Config{
+		Endpoints:   etcd,
+		DialTimeout: 5 * time.Second,
+	})
+	if err != nil {
+		fmt.Println("connect failed, err:", err)
+		return
+	}
+
+	defer cli.Close()
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	resp, err := cli.Get(ctx, "/hids/kafka/host")
+	if err != nil {
+		fmt.Println("get failed, err:", err)
+		return
+	}
+	for _, ev := range resp.Kvs {
+		fmt.Printf("%s : %s\n", ev.Key, ev.Value)
+	}
+
 }
 
 // Run 启动agent
