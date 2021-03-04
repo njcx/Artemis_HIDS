@@ -43,6 +43,8 @@ func (p *Producer) AddMessage(message string) error {
 		//fmt.Println(err)
 		return err
 	}
+
+	return nil
 }
 
 func (p *Producer) Close()  {

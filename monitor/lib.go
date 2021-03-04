@@ -13,7 +13,7 @@ import (
 	"strings"
 	common "peppa_hids/collect"
 
-	pcap "github.com/akrennmair/gopcap"
+	pcap "peppa_hids/utils/gopcap"
 	"github.com/fsnotify/fsnotify"
 )
 
