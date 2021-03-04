@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 	"github.com/json-iterator/go"
+
 )
 
 var etcD = []string{"10.10.116.190:2379"}
@@ -57,7 +58,7 @@ func (a *Agent) init() {
 		return
 	}
 
-	defer cli.Close()
+
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	resp, err := cli.Get(ctx, "/hids/kafka/host")
 	if err != nil {
@@ -78,8 +79,38 @@ func (a *Agent) init() {
 	kafkaTopic := string(ev1.Value)
 
 	a.Kafka = kafka.NewKafkaProducer(kafkaHost,kafkaTopic)
-
 	a.Mutex = new(sync.Mutex)
+
+	_, _ = cli.Put(ctx, "/hids/allhost/"+LocalIP, time.Now().Format("2006-01-02 15:04:05") )
+
+	go func(cli *clientv3.Client) {
+
+		for  {
+
+			//_, _ = cli.Put(ctx, "/hids/alivehost/"+LocalIP,
+			//	now.Format("2030-01-02 15:04:05"), clientv3.WithLease(resp.ID))
+
+			_, err = cli.Put(context.TODO(), "/hids/alivehost/"+LocalIP, time.Now().Format("2006-01-02 15:04:05") )
+
+			//Lease = clientv3.NewLease(cli)
+			//
+			//if leaseGrantResp, err = Lease.Grant(context.TODO(), 10); err != nil {
+			//	fmt.Println(err)
+			//}
+
+			if err != nil {
+				a.log("etcd client withLease failed, err:", err)
+				return
+			}
+
+			time.Sleep(10*time.Second)
+
+		}
+
+		cli.Close()
+
+	}(cli)
+
 
 }
 
@@ -89,7 +120,7 @@ func (a *Agent) Run() {
 	a.getInfo()
 }
 
-func (a Agent) setLocalIP(ip string) {
+func (a *Agent) setLocalIP(ip string) {
 	conn, err := net.Dial("tcp", ip)
 	if err != nil {
 		a.log("Net.Dial:", ip)
@@ -155,7 +186,7 @@ func (a *Agent) getInfo() {
 
 
 
-func (a Agent) put() {
+func (a *Agent) put() {
 	s,err :=json.Marshal(&a.PutData)
 	if err != nil {
 		a.log("Json marshal error:", err.Error())
@@ -167,7 +198,8 @@ func (a Agent) put() {
 }
 
 
-func (a Agent) mapComparison(new []map[string]string, old []map[string]string) bool {
+
+func (a *Agent) mapComparison(new []map[string]string, old []map[string]string) bool {
 	if len(new) == len(old) {
 		for i, v := range new {
 			for k, value := range v {
@@ -181,6 +213,6 @@ func (a Agent) mapComparison(new []map[string]string, old []map[string]string) b
 	return false
 }
 
-func (a Agent) log(info ...interface{}) {
+func (a *Agent) log(info ...interface{}) {
 	log2.Info.Println(info...)
 }
