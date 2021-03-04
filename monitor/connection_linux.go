@@ -195,7 +195,7 @@ import "C"
 import (
 	"fmt"
 	"strings"
-	"yulong-hids/agent/common"
+	common "peppa_hids/collect"
 
 )
 
