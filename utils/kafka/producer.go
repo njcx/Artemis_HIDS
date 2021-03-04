@@ -2,7 +2,6 @@ package kafka
 
 import (
 	"context"
-	"fmt"
 	kafka "github.com/segmentio/kafka-go"
 	"strings"
 )
@@ -35,13 +34,14 @@ func NewKafkaProducer(kafkaURL, topic string) *Producer {
 }
 
 
-func (p *Producer) AddMessage(message string)  {
+func (p *Producer) AddMessage(message string) error {
 	msg := kafka.Message{
 		Value: []byte(message),
 	}
 	err := p.producer.WriteMessages(context.Background(), msg)
 	if err != nil {
-		fmt.Println(err)
+		//fmt.Println(err)
+		return err
 	}
 }
 

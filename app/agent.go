@@ -1,30 +1,29 @@
 package app
 
 import (
-"context"
-"fmt"
-"log"
-"net"
-"runtime"
-"strings"
-"sync"
-"time"
-"peppa_hids/collect"
-"peppa_hids/monitor"
-"yulong-hids/agent/common"
-"github.com/etcd-io/etcd/clientv3"
-
+	"context"
+	"fmt"
+	"github.com/etcd-io/etcd/clientv3"
+	"net"
+	"peppa_hids/collect"
+	log2 "peppa_hids/utils/log"
+	"peppa_hids/utils/kafka"
+	"peppa_hids/monitor"
+	"runtime"
+	"strings"
+	"sync"
+	"time"
+	"github.com/json-iterator/go"
 )
 
-var etcd  = []string{"10.10.116.190:2379"}
+var etcD = []string{"10.10.116.190:2379"}
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
-var err error
+//var err error
 
 var (
 	LocalIP string
 )
-
-
 
 type dataInfo struct {
 	IP     string              // 客户端的IP地址
@@ -35,30 +34,28 @@ type dataInfo struct {
 
 // Agent agent客户端结构
 type Agent struct {
-	PutData      dataInfo       // 要传输的数据
-	Mutex        *sync.Mutex    // 安全操作锁
-	IsDebug      bool           // 是否开启debug模式，debug模式打印传输内容和报错信息
-	ctx          context.Context
-	Kafka        string
+	PutData dataInfo    // 要传输的数据
+	Mutex   *sync.Mutex // 安全操作锁
+	//IsDebug bool        // 是否开启debug模式，debug模式打印传输内容和报错信息
+	ctx     context.Context
+	Kafka   *kafka.Producer
 }
-
 
 func (a *Agent) init() {
 
-	a.setLocalIP(strings.Split(etcd[0], ":")[0])
+	a.setLocalIP(strings.Split(etcD[0], ":")[0])
 
 	if LocalIP == "" {
 		a.log("Can not get local address")
 		panic(1)
 	}
 
-
 	cli, err := clientv3.New(clientv3.Config{
-		Endpoints:   etcd,
+		Endpoints:   etcD,
 		DialTimeout: 5 * time.Second,
 	})
 	if err != nil {
-		fmt.Println("connect failed, err:", err)
+		a.log("connect failed, err:", err)
 		return
 	}
 
@@ -66,11 +63,23 @@ func (a *Agent) init() {
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	resp, err := cli.Get(ctx, "/hids/kafka/host")
 	if err != nil {
-		fmt.Println("get failed, err:", err)
+		a.log("get kafka_host failed, err:", err)
 		return
 	}
+
+	resp1, err := cli.Get(ctx, "/hids/kafka/topic")
+	if err != nil {
+		a.log("get kafka_topic failed, err:", err)
+		return
+	}
+
 	ev := resp.Kvs[0]
-	a.Kafka = ev.Value
+	kafkaHost := ev.Value
+
+	ev1 := resp1.Kvs[0]
+	kafkaTopic := ev1.Value
+
+	a.Kafka = kafka.NewKafkaProducer(kafkaHost,kafkaTopic)
 
 }
 
@@ -80,7 +89,6 @@ func (a *Agent) Run() {
 	a.monitor()
 	a.getInfo()
 }
-
 
 func (a Agent) setLocalIP(ip string) {
 	conn, err := net.Dial("tcp", ip)
@@ -108,7 +116,7 @@ func (a *Agent) monitor() {
 			source := data["source"]
 			delete(data, "source")
 			a.Mutex.Lock()
-			a.PutData = dataInfo{common.LocalIP, source, runtime.GOOS, append(resultdata, data)}
+			a.PutData = dataInfo{LocalIP, source, runtime.GOOS, append(resultdata, data)}
 			a.put()
 			a.Mutex.Unlock()
 		}
@@ -118,7 +126,7 @@ func (a *Agent) monitor() {
 func (a *Agent) getInfo() {
 	historyCache := make(map[string][]map[string]string)
 	for {
-		if len(common.Config.MonitorPath) == 0 {
+		if len(collect.Config.MonitorPath) == 0 {
 			time.Sleep(time.Second)
 			a.log("Failed to get the configuration information")
 			continue
@@ -130,7 +138,7 @@ func (a *Agent) getInfo() {
 				continue
 			} else {
 				a.Mutex.Lock()
-				a.PutData = dataInfo{common.LocalIP, k, runtime.GOOS, v}
+				a.PutData = dataInfo{LocalIP, k, runtime.GOOS, v}
 				a.put()
 				a.Mutex.Unlock()
 				if k != "service" {
@@ -139,10 +147,27 @@ func (a *Agent) getInfo() {
 				historyCache[k] = v
 			}
 		}
-		if common.Config.Cycle == 0 {
-			common.Config.Cycle = 1
+		if collect.Config.Cycle == 0 {
+			collect.Config.Cycle = 1
 		}
-		time.Sleep(time.Second * time.Duration(common.Config.Cycle) * 60)
+		time.Sleep(time.Second * time.Duration(collect.Config.Cycle) * 60)
+	}
+}
+
+
+
+func (a Agent) put() {
+	//_, err := a.Client.Go(a.ctx, "PutInfo", &a.PutData, &a.Reply, nil)
+	s,err :=json.Marshal(&a.PutData)
+
+	if err != nil {
+		a.log("Json marshal error:", err.Error())
+	}
+
+	err = a.Kafka.AddMessage(string(s))
+
+	if err != nil {
+		a.log("PutInfo error:", err.Error())
 	}
 }
 
@@ -162,8 +187,5 @@ func (a Agent) mapComparison(new []map[string]string, old []map[string]string) b
 }
 
 func (a Agent) log(info ...interface{}) {
-	if a.IsDebug {
-		log.Println(info...)
-	}
+	log2.Info.Println(info...)
 }
-
