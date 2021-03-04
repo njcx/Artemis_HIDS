@@ -41,7 +41,7 @@ type Agent struct {
 
 func (a *Agent) init() {
 
-	a.setLocalIP(strings.Split(etcD[0], ":")[0])
+	a.setLocalIP(etcD[0])
 
 	if LocalIP == "" {
 		a.log("Can not get local address")
@@ -72,17 +72,19 @@ func (a *Agent) init() {
 	}
 
 	ev := resp.Kvs[0]
-	kafkaHost := ev.Value
+	kafkaHost := string(ev.Value)
 
 	ev1 := resp1.Kvs[0]
-	kafkaTopic := ev1.Value
+	kafkaTopic := string(ev1.Value)
 
 	a.Kafka = kafka.NewKafkaProducer(kafkaHost,kafkaTopic)
+
+	a.Mutex = new(sync.Mutex)
 
 }
 
 func (a *Agent) Run() {
-
+	a.init()
 	a.monitor()
 	a.getInfo()
 }
@@ -101,7 +103,7 @@ func (a Agent) setLocalIP(ip string) {
 func (a *Agent) monitor() {
 	resultChan := make(chan map[string]string, 16)
 	//go monitor.StartNetSniff(resultChan)
-	go monitor.StartProcessMonitor(resultChan)
+	//go monitor.StartProcessMonitor(resultChan)
 	go monitor.StartFileMonitor(resultChan)
 	go func(result chan map[string]string) {
 		var resultdata []map[string]string
@@ -123,11 +125,11 @@ func (a *Agent) monitor() {
 func (a *Agent) getInfo() {
 	historyCache := make(map[string][]map[string]string)
 	for {
-		if len(collect.Config.MonitorPath) == 0 {
-			time.Sleep(time.Second)
-			a.log("Failed to get the configuration information")
-			continue
-		}
+		//if len(collect.Config.MonitorPath) == 0 {
+		//	time.Sleep(time.Second)
+		//	a.log("Failed to get the configuration information")
+		//	continue
+		//}
 		allData := collect.GetAllInfo()
 		for k, v := range allData {
 			if len(v) == 0 || a.mapComparison(v, historyCache[k]) {
