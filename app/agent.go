@@ -86,18 +86,7 @@ func (a *Agent) init() {
 	go func(cli *clientv3.Client) {
 
 		for  {
-
-			//_, _ = cli.Put(ctx, "/hids/alivehost/"+LocalIP,
-			//	now.Format("2030-01-02 15:04:05"), clientv3.WithLease(resp.ID))
-
-			_, err = cli.Put(context.TODO(), "/hids/alivehost/"+LocalIP, time.Now().Format("2006-01-02 15:04:05") )
-
-			//Lease = clientv3.NewLease(cli)
-			//
-			//if leaseGrantResp, err = Lease.Grant(context.TODO(), 10); err != nil {
-			//	fmt.Println(err)
-			//}
-
+			_, err = cli.Put(context.TODO(), "/hids/alivehost/"+LocalIP, time.Now().Format("2006-01-02 15:04:05"))
 			if err != nil {
 				a.log("etcd client withLease failed, err:", err)
 				return
