@@ -26,17 +26,15 @@ var (
 )
 
 type dataInfo struct {
-	IP     string              // 客户端的IP地址
-	Type   string              // 传输的数据类型
-	System string              // 操作系统
-	Data   []map[string]string // 数据内容
+	IP     string
+	Type   string
+	System string
+	Data   []map[string]string
 }
 
-// Agent agent客户端结构
 type Agent struct {
-	PutData dataInfo    // 要传输的数据
-	Mutex   *sync.Mutex // 安全操作锁
-	//IsDebug bool        // 是否开启debug模式，debug模式打印传输内容和报错信息
+	PutData dataInfo
+	Mutex   *sync.Mutex
 	ctx     context.Context
 	Kafka   *kafka.Producer
 }
@@ -83,7 +81,6 @@ func (a *Agent) init() {
 
 }
 
-// Run 启动agent
 func (a *Agent) Run() {
 
 	a.monitor()
@@ -157,15 +154,11 @@ func (a *Agent) getInfo() {
 
 
 func (a Agent) put() {
-	//_, err := a.Client.Go(a.ctx, "PutInfo", &a.PutData, &a.Reply, nil)
 	s,err :=json.Marshal(&a.PutData)
-
 	if err != nil {
 		a.log("Json marshal error:", err.Error())
 	}
-
 	err = a.Kafka.AddMessage(string(s))
-
 	if err != nil {
 		a.log("PutInfo error:", err.Error())
 	}
