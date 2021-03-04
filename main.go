@@ -1,12 +1,13 @@
 package main
 
 import (
-"fmt"
-"log"
-"os"
-//"os/signal"
-//"syscall"
-"github.com/takama/daemon"
+	"fmt"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"github.com/takama/daemon"
+	"peppa_hids/app"
 )
 
 const (
@@ -14,14 +15,13 @@ const (
 	description = "peppa-Agent Service"
 )
 
-var dependencies = []string{"p-agent.service"}
+var dependencies = []string{"peppa-agent.service"}
 
 var stdlog, errlog *log.Logger
 
 type Service struct {
 	daemon.Daemon
 }
-
 
 func (service *Service) Manage() (string, error) {
 
@@ -45,23 +45,27 @@ func (service *Service) Manage() (string, error) {
 		}
 	}
 
-	//interrupt := make(chan os.Signal, 1)
-	//signal.Notify(interrupt, os.Interrupt, os.Kill, syscall.SIGTERM)
-	//
-	//for {
-	//	select {
-	//	case killSignal := <-interrupt:
-	//		stdlog.Println("Got signal:", killSignal)
-	//		if killSignal == os.Interrupt {
-	//			return "Daemon was interruped by system signal", nil
-	//		}
-	//		return "Daemon was killed", nil
-	//	}
-	//}
+    go func() {
+		var agent app.Agent
+		agent.Run()
+	}()
+
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt, os.Kill, syscall.SIGTERM)
+
+	for {
+		select {
+		case killSignal := <-interrupt:
+			stdlog.Println("Got signal:", killSignal)
+			if killSignal == os.Interrupt {
+				return "Daemon was interruped by system signal", nil
+			}
+			return "Daemon was killed", nil
+		}
+	}
 
 	return usage, nil
 }
-
 
 func init() {
 	stdlog = log.New(os.Stdout, "", log.Ldate|log.Ltime)
