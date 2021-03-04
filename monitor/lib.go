@@ -11,10 +11,10 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"yulong-hids/agent/common"
+	common "peppa_hids/collect"
 
 	pcap "github.com/akrennmair/gopcap"
-	"github.com/go-fsnotify/fsnotify"
+	"github.com/fsnotify/fsnotify"
 )
 
 func getFileMD5(path string) (string, error) {

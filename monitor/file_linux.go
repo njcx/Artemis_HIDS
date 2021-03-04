@@ -23,9 +23,8 @@ import (
 	"log"
 	"os"
 	"strings"
-	"yulong-hids/agent/common"
-
-	"github.com/go-fsnotify/fsnotify"
+	common "peppa_hids/collect"
+	"github.com/fsnotify/fsnotify"
 )
 
 func getFileUser(path string) (string, error) {

@@ -89,7 +89,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"yulong-hids/agent/common"
+	common "peppa_hids/collect"
 )
 
 // StartProcessMonitor 开始进程监控
