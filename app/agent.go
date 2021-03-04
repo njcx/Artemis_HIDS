@@ -3,18 +3,17 @@ package app
 import (
 	"context"
 	"fmt"
-	"github.com/etcd-io/etcd/clientv3"
+	"github.com/json-iterator/go"
+	"go.etcd.io/etcd/client/v3"
 	"net"
 	"peppa_hids/collect"
-	log2 "peppa_hids/utils/log"
-	"peppa_hids/utils/kafka"
 	"peppa_hids/monitor"
+	"peppa_hids/utils/kafka"
+	log2 "peppa_hids/utils/log"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
-	"github.com/json-iterator/go"
-
 )
 
 var etcD = []string{"10.10.116.190:2379"}
@@ -58,7 +57,6 @@ func (a *Agent) init() {
 		return
 	}
 
-
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	resp, err := cli.Get(ctx, "/hids/kafka/host")
 	if err != nil {
@@ -78,17 +76,25 @@ func (a *Agent) init() {
 	ev1 := resp1.Kvs[0]
 	kafkaTopic := string(ev1.Value)
 
-	a.Kafka = kafka.NewKafkaProducer(kafkaHost,kafkaTopic)
+	a.Kafka = kafka.NewKafkaProducer(kafkaHost, kafkaTopic)
 	a.Mutex = new(sync.Mutex)
 
-	_, _ = cli.Put(ctx, "/hids/allhost/"+LocalIP, time.Now().Format("2006-01-02 15:04:05") )
+	_, _ = cli.Put(ctx, "/hids/allhost/"+LocalIP, time.Now().Format("2006-01-02 15:04:05"))
 
 	go func(cli *clientv3.Client) {
 
-		for  {
-			_, err = cli.Put(context.TODO(), "/hids/alivehost/"+LocalIP, time.Now().Format("2006-01-02 15:04:05"))
+		for {
+
+			resp, err := cli.Grant(context.TODO(), 60)
 			if err != nil {
-				a.log("etcd client withLease failed, err:", err)
+				a.log("etcd client leasegrant failed, err:", err)
+				return
+			}
+
+			_, err = cli.Put(context.TODO(), "/hids/alivehost/"+LocalIP, time.Now().Format("2006-01-02 15:04:05"),
+				clientv3.WithLease(resp.ID))
+			if err != nil {
+				a.log("etcd client leaseput failed, err:", err)
 				return
 			}
 
@@ -99,7 +105,6 @@ func (a *Agent) init() {
 		cli.Close()
 
 	}(cli)
-
 
 }
 
@@ -173,10 +178,8 @@ func (a *Agent) getInfo() {
 	}
 }
 
-
-
 func (a *Agent) put() {
-	s,err :=json.Marshal(&a.PutData)
+	s, err := json.Marshal(&a.PutData)
 	if err != nil {
 		a.log("Json marshal error:", err.Error())
 	}
@@ -185,8 +188,6 @@ func (a *Agent) put() {
 		a.log("PutInfo error:", err.Error())
 	}
 }
-
-
 
 func (a *Agent) mapComparison(new []map[string]string, old []map[string]string) bool {
 	if len(new) == len(old) {
