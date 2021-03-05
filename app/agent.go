@@ -79,33 +79,30 @@ func (a *Agent) init() {
 	a.Kafka = kafka.NewKafkaProducer(kafkaHost, kafkaTopic)
 	a.Mutex = new(sync.Mutex)
 
-	_, _ = cli.Put(ctx, "/hids/allhost/"+LocalIP, time.Now().Format("2006-01-02 15:04:05"))
+	_,  err = cli.Put(ctx, "/hids/allhost/"+LocalIP, time.Now().Format("2006-01-02 15:04:05"))
+
+	if err != nil {
+		a.log("etcd client leasegrant failed, err:", err)
+		return
+	}
 
 	go func(cli *clientv3.Client) {
-
 		for {
-
 			resp, err := cli.Grant(context.TODO(), 60)
 			if err != nil {
 				a.log("etcd client leasegrant failed, err:", err)
 				return
 			}
-
 			_, err = cli.Put(context.TODO(), "/hids/alivehost/"+LocalIP, time.Now().Format("2006-01-02 15:04:05"),
 				clientv3.WithLease(resp.ID))
 			if err != nil {
 				a.log("etcd client leaseput failed, err:", err)
 				return
 			}
-
 			time.Sleep(10*time.Second)
-
 		}
-
 		cli.Close()
-
 	}(cli)
-
 }
 
 func (a *Agent) Run() {
