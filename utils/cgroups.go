@@ -12,19 +12,17 @@ import (
 )
 
 
-
 const (
 	procsFile       = "cgroup.procs"
 	memoryLimitFile = "memory.limit_in_bytes"
 	swapLimitFile   = "memory.swappiness"
 	cpuLimitFile    = "cpu.cfs_quota_us"
 	Name            = "Pagent"
-	memoLimit       =  50    //50M
+	memoLimit       =  50                                          // 50M
 	mcgroupRoot  	=  "/sys/fs/cgroup/memory/"+Name
-	cpuLimit     	=  5     // 5%  CPU 占用
+	cpuLimit     	=  5                                           //  5%
 	cpucgroupRoot 	=  "/sys/fs/cgroup/cpu/"+Name
 )
-
 
 
 func main() {
@@ -100,7 +98,6 @@ func startCmd(command string) {
 
 		cmd.Stdout = os.Stdout
 
-		// start app
 		if err := cmd.Start(); err != nil {
 			log.Panic(err)
 		}
