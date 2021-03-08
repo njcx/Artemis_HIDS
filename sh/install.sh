@@ -2,10 +2,10 @@
 
 set -e
 
-download_url = "http://xxx"
+download_url = "http://10.10.252.215:8888/p-master"
+download_url_backup = "http://10.10.252.215:8888/p-agent"
 
-download_url_backup =  "http://"
-
+#curl http://10.10.252.215:8888/hids-agent-install.sh|bash
 
 downloads()
 {
@@ -80,13 +80,9 @@ if [ ! -d "${agent-dir}"  ];then
   downloads $download_url /usr/local/peppac/p-agent $download_url_backup
   chmod +x  /usr/local/peppac/p-master
   chmod +x  /usr/local/peppac/p-agent
-
   /usr/local/peppac/p-master install
   /usr/local/peppac/p-master start
-
-
 else
-
       if [ -f "/usr/local/peppac/p-master" ]
         then
           /usr/local/peppac/p-master stop
@@ -94,12 +90,10 @@ else
           rm -rf  /usr/local/peppac/p-master
           rm -rf  /usr/local/peppac/p-agent
       fi
-
       downloads $download_url /usr/local/peppac/p-master $download_url_backup
       downloads $download_url /usr/local/peppac/p-agent $download_url_backup
       chmod +x  /usr/local/peppac/p-master
       chmod +x  /usr/local/peppac/p-agent
-
       /usr/local/peppac/p-master install
       /usr/local/peppac/p-master start
 
