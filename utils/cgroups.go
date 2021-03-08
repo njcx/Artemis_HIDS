@@ -84,10 +84,12 @@ func writeFile(path string, value int) {
 	}
 }
 
+
 type ExitStatus struct {
 	Signal os.Signal
 	Code   int
 }
+
 
 func startCmd(command string) {
 	restart := make(chan ExitStatus, 1)
