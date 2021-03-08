@@ -50,6 +50,9 @@ func (service *Service) Manage() (string, error) {
 		agent.Run()
 	}()
 
+
+
+
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, os.Kill, syscall.SIGTERM)
 
