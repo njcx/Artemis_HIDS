@@ -2,8 +2,8 @@
 
 set -e
 
-download_url = "http://10.10.252.215:8888/p-master"
-download_url_backup = "http://10.10.252.215:8888/p-agent"
+download_url="http://10.10.252.215:8888/p-master"
+download_url_backup="http://10.10.252.215:8888/p-agent"
 
 #curl http://10.10.252.215:8888/hids-agent-install.sh|bash
 
@@ -25,21 +25,23 @@ downloads()
     then
         wget --timeout=5 --tries=5 -O $2 $1
         if [ $? -ne 0 ]
-	then
-		wget --timeout=5 --tries=5 -O $2 $3
+        then
+                wget --timeout=5 --tries=5 -O $2 $3
     fi
+
+   fi
 }
 
 
 
 if grep -v '^#' /etc/fstab | grep -q cgroup; then
-	echo "cgroups mounted from fstab, not mounting /sys/fs/cgroup"
-	exit 0
+        echo "cgroups mounted from fstab, not mounting /sys/fs/cgroup"
+        exit 0
 fi
 
 
 if [ ! -e /proc/cgroups ]; then
-	exit 0
+        exit 0
 fi
 
 
@@ -58,24 +60,24 @@ for d in `tail -n +2 /proc/cgroups | awk '{
                 print a[i]
         }
 }'`; do
-	mkdir -p /sys/fs/cgroup/$d
-	mountpoint -q /sys/fs/cgroup/$d || (mount -n -t cgroup -o $d cgroup /sys/fs/cgroup/$d || rmdir /sys/fs/cgroup/$d || true)
+        mkdir -p /sys/fs/cgroup/$d
+        mountpoint -q /sys/fs/cgroup/$d || (mount -n -t cgroup -o $d cgroup /sys/fs/cgroup/$d || rmdir /sys/fs/cgroup/$d || true)
 done
 
 
 
 dir=/sys/fs/cgroup/systemd
 if [ ! -d "${dir}" ]; then
-	mkdir "${dir}"
-	mount -n -t cgroup -o none,name=systemd name=systemd "${dir}" || rmdir "${dir}" || true
+        mkdir "${dir}"
+        mount -n -t cgroup -o none,name=systemd name=systemd "${dir}" || rmdir "${dir}" || true
 fi
 
 
 
-agent-dir=/usr/local/peppac
+agent_dir="/usr/local/peppac"
 
-if [ ! -d "${agent-dir}"  ];then
-  mkdir "${agent-dir}"
+if [ ! -d $agent_dir  ];then
+  mkdir $agent_dir
   downloads $download_url /usr/local/peppac/p-master $download_url_backup
   downloads $download_url /usr/local/peppac/p-agent $download_url_backup
   chmod +x  /usr/local/peppac/p-master
