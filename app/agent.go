@@ -3,17 +3,18 @@ package app
 import (
 	"context"
 	"fmt"
-	"github.com/json-iterator/go"
-	"go.etcd.io/etcd/client/v3"
 	"net"
-	"peppa_hids/collect"
-	"peppa_hids/monitor"
-	"peppa_hids/utils/kafka"
-	log2 "peppa_hids/utils/log"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
+	"os"
+	"github.com/json-iterator/go"
+	"go.etcd.io/etcd/client/v3"
+	"peppa_hids/collect"
+	"peppa_hids/monitor"
+	"peppa_hids/utils/kafka"
+	log2 "peppa_hids/utils/log"
 )
 
 var etcD = []string{"10.10.116.190:2379"}
@@ -79,7 +80,13 @@ func (a *Agent) init() {
 	a.Kafka = kafka.NewKafkaProducer(kafkaHost, kafkaTopic)
 	a.Mutex = new(sync.Mutex)
 
-	_,  err = cli.Put(ctx, "/hids/allhost/"+LocalIP, time.Now().Format("2006-01-02 15:04:05"))
+	host, err := os.Hostname()
+	if err != nil {
+		a.log("get host name failed, err:", err)
+		host = "No-Host-Name"
+	}
+
+	_,  err = cli.Put(ctx, "/hids/allhost/"+host+"--"+LocalIP, time.Now().Format("2006-01-02 15:04:05"))
 
 	if err != nil {
 		a.log("etcd client leasegrant failed, err:", err)
@@ -87,13 +94,14 @@ func (a *Agent) init() {
 	}
 
 	go func(cli *clientv3.Client) {
+
 		for {
 			resp, err := cli.Grant(context.TODO(), 60)
 			if err != nil {
 				a.log("etcd client leasegrant failed, err:", err)
 				return
 			}
-			_, err = cli.Put(context.TODO(), "/hids/alivehost/"+LocalIP, time.Now().Format("2006-01-02 15:04:05"),
+			_, err = cli.Put(context.TODO(), "/hids/alivehost/"+host+"--"+LocalIP, time.Now().Format("2006-01-02 15:04:05"),
 				clientv3.WithLease(resp.ID))
 			if err != nil {
 				a.log("etcd client leaseput failed, err:", err)
