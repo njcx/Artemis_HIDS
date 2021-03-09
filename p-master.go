@@ -27,7 +27,6 @@ const (
 )
 
 var dependencies = []string{"p-master.service"}
-
 var stdlog, errlog *log.Logger
 
 type Service struct {
@@ -42,7 +41,6 @@ func (service *Service) Manage() (string, error) {
 		command := os.Args[1]
 		switch command {
 		case "install":
-
 			exist, _ := PathExists(mcgroupRoot)
 			if exist {
 				fmt.Printf("has dir![%v]\n", mcgroupRoot)
@@ -87,7 +85,6 @@ func (service *Service) Manage() (string, error) {
 	}
 
 	go startCmd("/usr/local/peppac/p-agent")
-
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, os.Kill, syscall.SIGTERM)
 
@@ -101,7 +98,6 @@ func (service *Service) Manage() (string, error) {
 			return "Daemon was killed", nil
 		}
 	}
-
 	return usage, nil
 }
 
@@ -154,52 +150,35 @@ type ExitStatus struct {
 
 func startCmd(command string) {
 	restart := make(chan ExitStatus, 1)
-
 	runner := func() {
 		cmd := exec.Cmd{
 			Path: command,
 		}
-
 		cmd.Stdout = os.Stdout
-
 		if err := cmd.Start(); err != nil {
 			log.Panic(err)
 		}
-
 		fmt.Println("add pid", cmd.Process.Pid, "to file cgroup.procs")
-
 		mPath := filepath.Join(mcgroupRoot, procsFile)
 		writeFile(mPath, cmd.Process.Pid)
-
-
 		cpuPath := filepath.Join(cpucgroupRoot, procsFile)
 		writeFile(cpuPath, cmd.Process.Pid)
-
-
 		if err := cmd.Wait(); err != nil {
 			fmt.Println("cmd return with error:", err)
 		}
-
 		status := cmd.ProcessState.Sys().(syscall.WaitStatus)
-
 		options := ExitStatus{
 			Code: status.ExitStatus(),
 		}
-
 		if status.Signaled() {
 			options.Signal = status.Signal()
 		}
-
 		cmd.Process.Kill()
-
 		restart <- options
 	}
-
 	go runner()
-
 	for {
 		status := <-restart
-
 		switch status.Signal {
 		case os.Kill:
 			fmt.Println("app is killed by system")
@@ -207,7 +186,6 @@ func startCmd(command string) {
 			fmt.Println("app exit with code:", status.Code)
 			return
 		}
-
 		fmt.Println("restart app..")
 		go runner()
 	}
