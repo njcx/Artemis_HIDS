@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	name        = "peppa-agent"
-	description = "peppa-Agent Service"
+	name            = "p-master"
+	description     = "peppa-hids service"
 	procsFile       = "cgroup.procs"
 	memoryLimitFile = "memory.limit_in_bytes"
 	swapLimitFile   = "memory.swappiness"
@@ -26,7 +26,7 @@ const (
 	cpucgroupRoot 	=  "/sys/fs/cgroup/cpu/"+Name
 )
 
-var dependencies = []string{"p-master.service"}
+
 var stdlog, errlog *log.Logger
 
 type Service struct {
@@ -107,7 +107,7 @@ func init() {
 }
 
 func main() {
-	srv, err := daemon.New(name, description, daemon.SystemDaemon, dependencies...)
+	srv, err := daemon.New(name, description, daemon.SystemDaemon,"nil")
 	if err != nil {
 		errlog.Println("Error: ", err)
 		os.Exit(1)
