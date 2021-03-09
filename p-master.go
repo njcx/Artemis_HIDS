@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	name            = "p-master"
-	description     = "peppa-hids service"
+	name            = "p_master"
+	description     = "peppa hids service"
 	procsFile       = "cgroup.procs"
 	memoryLimitFile = "memory.limit_in_bytes"
 	swapLimitFile   = "memory.swappiness"
