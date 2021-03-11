@@ -105,7 +105,6 @@ else
 fi
 
 
-
 echo "P-HIDS Service successfully installed"
 
 exit 0

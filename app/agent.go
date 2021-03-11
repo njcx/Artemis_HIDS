@@ -20,7 +20,6 @@ import (
 var etcD = []string{"10.10.116.190:2379"}
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
-//var err error
 
 var (
 	LocalIP string

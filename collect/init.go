@@ -25,9 +25,7 @@ func init() {
 // GetAllInfo 获取所有收集的信息
 func GetAllInfo() map[string][]map[string]string {
 	allInfo["listening"] = GetListening()
-	allInfo["service"] = GetServiceInfo()
 	allInfo["userlist"] = GetUser()
-	allInfo["startup"] = GetStartup()
 	allInfo["crontab"] = GetCrontab()
 	allInfo["loginlog"] = GetLoginLog()
 	allInfo["processlist"] = GetProcessList()
