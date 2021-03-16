@@ -1,4 +1,4 @@
-package collect
+package monitor
 
 import (
 	"fmt"
@@ -35,7 +35,7 @@ type DnsMsg struct {
 
 
 
-func main() {
+func xmain() {
 
 	devName = "eth0"
 	var eth layers.Ethernet
