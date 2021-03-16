@@ -4,11 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
-	"os"
 	"github.com/json-iterator/go"
 	"go.etcd.io/etcd/client/v3"
 	"peppa_hids/collect"
@@ -47,6 +45,7 @@ func (a *Agent) init() {
 
 	collect.ServerInfo = collect.GetComInfo()
 
+
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:   etcD,
 		DialTimeout: 5 * time.Second,
@@ -78,13 +77,8 @@ func (a *Agent) init() {
 	a.Kafka = kafka.NewKafkaProducer(kafkaHost, kafkaTopic)
 	a.Mutex = new(sync.Mutex)
 
-	host, err := os.Hostname()
-	if err != nil {
-		a.log("get host name failed, err:", err)
-		host = "No-Host-Name"
-	}
-
-	_,  err = cli.Put(ctx, "/hids/allhost/"+host+"--"+collect.LocalIP, time.Now().Format("2006-01-02 15:04:05"))
+	_,  err = cli.Put(ctx, "/hids/allhost/"+collect.ServerInfo.Hostname+"--"+collect.LocalIP,
+		time.Now().Format("2006-01-02 15:04:05"))
 
 	if err != nil {
 		a.log("etcd client leasegrant failed, err:", err)
@@ -99,8 +93,8 @@ func (a *Agent) init() {
 				a.log("etcd client leasegrant failed, err:", err)
 				return
 			}
-			_, err = cli.Put(context.TODO(), "/hids/alivehost/"+host+"--"+collect.LocalIP, time.Now().Format("2006-01-02 15:04:05"),
-				clientv3.WithLease(resp.ID))
+			_, err = cli.Put(context.TODO(), "/hids/alivehost/"+collect.ServerInfo.Hostname+"--"+collect.LocalIP,
+				time.Now().Format("2006-01-02 15:04:05"), clientv3.WithLease(resp.ID))
 			if err != nil {
 				a.log("etcd client leaseput failed, err:", err)
 				return
@@ -144,7 +138,7 @@ func (a *Agent) monitor() {
 			source := data["source"]
 			delete(data, "source")
 			a.Mutex.Lock()
-			a.PutData = dataInfo{collect.LocalIP, source, runtime.GOOS, append(resultdata, data)}
+			a.PutData = dataInfo{collect.LocalIP, source, collect.ServerInfo.System, append(resultdata, data)}
 			a.put()
 			a.Mutex.Unlock()
 		}
@@ -166,7 +160,7 @@ func (a *Agent) getInfo() {
 				continue
 			} else {
 				a.Mutex.Lock()
-				a.PutData = dataInfo{collect.LocalIP, k, runtime.GOOS, v}
+				a.PutData = dataInfo{collect.LocalIP, k, collect.ServerInfo.System, v}
 				a.put()
 				a.Mutex.Unlock()
 				if k != "service" {
