@@ -25,6 +25,7 @@ import (
 	"strings"
 	common "peppa_hids/collect"
 	"github.com/fsnotify/fsnotify"
+	log2 "peppa_hids/utils/log"
 )
 
 func getFileUser(path string) (string, error) {
@@ -51,6 +52,7 @@ func StartFileMonitor(resultChan chan map[string]string) {
 	var pathList []string
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
+		log2.Info.Println("fsnotify new watcher failed, err:", err)
 		return
 	}
 	defer watcher.Close()

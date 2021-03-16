@@ -197,7 +197,7 @@ import (
 	"strings"
 	common "peppa_hids/collect"
 	"peppa_hids/utils/pcap"
-
+	log2 "peppa_hids/utils/log"
 )
 
 // StartNetSniff 开始网络行为监控
@@ -206,6 +206,7 @@ func StartNetSniff(resultChan chan map[string]string) {
 	var resultdata map[string]string
 	h, err := getPcapHandle(common.LocalIP)
 	if err != nil {
+		log2.Info.Println("get pcaphandle failed, err:", err)
 		return
 	}
 	for {
