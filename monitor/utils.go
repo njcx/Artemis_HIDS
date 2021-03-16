@@ -84,6 +84,7 @@ func getPcapHandle(ip string) (*pcap.Pcap, error) {
 			}
 		}
 	}
+
 	if device == "" {
 		return nil, errors.New("find device error")
 	}

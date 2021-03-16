@@ -21,9 +21,6 @@ var etcD = []string{"10.10.116.190:2379"}
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 
-var (
-	LocalIP string
-)
 
 type dataInfo struct {
 	IP     string
@@ -128,7 +125,7 @@ func (a *Agent) setLocalIP(ip string) {
 		panic(1)
 	}
 	defer conn.Close()
-	LocalIP = strings.Split(conn.LocalAddr().String(), ":")[0]
+	collect.LocalIP = strings.Split(conn.LocalAddr().String(), ":")[0]
 }
 
 func (a *Agent) monitor() {
@@ -146,7 +143,7 @@ func (a *Agent) monitor() {
 			source := data["source"]
 			delete(data, "source")
 			a.Mutex.Lock()
-			a.PutData = dataInfo{LocalIP, source, runtime.GOOS, append(resultdata, data)}
+			a.PutData = dataInfo{collect.LocalIP, source, runtime.GOOS, append(resultdata, data)}
 			a.put()
 			a.Mutex.Unlock()
 		}
@@ -168,7 +165,7 @@ func (a *Agent) getInfo() {
 				continue
 			} else {
 				a.Mutex.Lock()
-				a.PutData = dataInfo{LocalIP, k, runtime.GOOS, v}
+				a.PutData = dataInfo{collect.LocalIP, k, runtime.GOOS, v}
 				a.put()
 				a.Mutex.Unlock()
 				if k != "service" {
