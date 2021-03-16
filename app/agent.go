@@ -45,6 +45,8 @@ func (a *Agent) init() {
 		panic(1)
 	}
 
+	collect.ServerInfo = collect.GetComInfo()
+
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:   etcD,
 		DialTimeout: 5 * time.Second,
