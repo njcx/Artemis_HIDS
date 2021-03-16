@@ -40,7 +40,7 @@ func (a *Agent) init() {
 
 	a.setLocalIP(etcD[0])
 
-	if LocalIP == "" {
+	if collect.LocalIP == "" {
 		a.log("Can not get local address")
 		panic(1)
 	}
@@ -82,7 +82,7 @@ func (a *Agent) init() {
 		host = "No-Host-Name"
 	}
 
-	_,  err = cli.Put(ctx, "/hids/allhost/"+host+"--"+LocalIP, time.Now().Format("2006-01-02 15:04:05"))
+	_,  err = cli.Put(ctx, "/hids/allhost/"+host+"--"+collect.LocalIP, time.Now().Format("2006-01-02 15:04:05"))
 
 	if err != nil {
 		a.log("etcd client leasegrant failed, err:", err)
@@ -97,7 +97,7 @@ func (a *Agent) init() {
 				a.log("etcd client leasegrant failed, err:", err)
 				return
 			}
-			_, err = cli.Put(context.TODO(), "/hids/alivehost/"+host+"--"+LocalIP, time.Now().Format("2006-01-02 15:04:05"),
+			_, err = cli.Put(context.TODO(), "/hids/alivehost/"+host+"--"+collect.LocalIP, time.Now().Format("2006-01-02 15:04:05"),
 				clientv3.WithLease(resp.ID))
 			if err != nil {
 				a.log("etcd client leaseput failed, err:", err)
@@ -107,7 +107,6 @@ func (a *Agent) init() {
 		}
 		cli.Close()
 	}(cli)
-
 
 }
 
