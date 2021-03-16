@@ -1,5 +1,3 @@
-// Package collect 获取以下服务器关键信息
-// 监听端口，服务列表，用户列表，启动项，计划任务，登录日志
 package collect
 
 import (

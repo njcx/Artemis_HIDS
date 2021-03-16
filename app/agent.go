@@ -110,6 +110,8 @@ func (a *Agent) init() {
 		}
 		cli.Close()
 	}(cli)
+
+
 }
 
 func (a *Agent) Run() {
@@ -131,7 +133,7 @@ func (a *Agent) setLocalIP(ip string) {
 
 func (a *Agent) monitor() {
 	resultChan := make(chan map[string]string, 16)
-	//go monitor.StartNetSniff(resultChan)
+	go monitor.StartNetSniff(resultChan)
 	//go monitor.StartProcessMonitor(resultChan)
 	go monitor.StartFileMonitor(resultChan)
 	go func(result chan map[string]string) {
