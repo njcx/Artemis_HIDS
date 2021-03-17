@@ -155,7 +155,7 @@ func startCmd(command string) {
 		cmd := exec.Cmd{
 			Path: command,
 		}
-		
+
 		var stderr bytes.Buffer
 		cmd.Stderr = &stderr
 

@@ -66,6 +66,10 @@ func getLast(t string) (result []map[string]string) {
 	return result
 }
 func getLastb(t string) (result []map[string]string) {
+
+	if len(t) ==0 {
+		t="all"
+	}
 	var cmd string
 	ti, _ := time.Parse("2006-01-02T15:04:05Z07:00", t)
 	if t == "all" {
@@ -88,6 +92,7 @@ func getLastb(t string) (result []map[string]string) {
 		m["remote"] = s[2]
 		t, _ := time.Parse("2006-01-02T15:04:05Z0700", s[3])
 		m["time"] = t.Format("2006-01-02T15:04:05Z07:00")
+		Config.Lasttime = t.Format("20060102150405")
 		result = append(result, m)
 	}
 	return
