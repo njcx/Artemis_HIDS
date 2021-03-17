@@ -91,11 +91,14 @@ func (service *Service) Manage() (string, error) {
 	for {
 		select {
 		case killSignal := <-interrupt:
-			stdlog.Println("Got signal:", killSignal)
+			errLog.Println("P-master got signal:", killSignal)
 			if killSignal == os.Interrupt {
-				return "Daemon was interruped by system signal", nil
+				err :="P-master was interruped by system signal"
+				errLog.Println(err)
+				return err, nil
 			}
-			return "Daemon was killed", nil
+			err :="P-master was killed"
+			return err, nil
 		}
 	}
 	return usage, nil
@@ -183,12 +186,12 @@ func startCmd(command string) {
 		status := <-restart
 		switch status.Signal {
 		case os.Kill:
-			errLog.Println("app is killed by system")
+			errLog.Println("p-agent is killed by system")
 		default:
-			errLog.Println("app exit with code:", status.Code)
+			errLog.Println("p-agent exit with code:", status.Code)
 			return
 		}
-		errLog.Println("restart app..")
+		errLog.Println("restart p-agent..")
 		go runner()
 	}
 }
