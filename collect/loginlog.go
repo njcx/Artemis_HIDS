@@ -73,9 +73,10 @@ func getLastb(t string) (result []map[string]string) {
 	var cmd string
 	ti, _ := time.Parse("2006-01-02T15:04:05Z07:00", t)
 	if t == "all" {
-		cmd = "/usr/local/peppac/p-lastb --time-format iso"
+		cmd = "/usr/local/peppac/p-lastb --time-format iso -f /var/log/btmp"
 	} else {
-		cmd = fmt.Sprintf("/usr/local/peppac/p-lastb -s %s --time-format iso", ti.Format("20060102150405"))
+		cmd = fmt.Sprintf("/usr/local/peppac/p-lastb -s %s --time-format iso -f /var/log/btmp",
+			ti.Format("20060102150405"))
 	}
 	out := Cmdexec(cmd)
 	logList := strings.Split(out, "\n")
