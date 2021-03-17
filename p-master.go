@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"io"
+	"bytes"
 )
 
 const (
@@ -69,7 +70,6 @@ func (service *Service) Manage() (string, error) {
 			writeFile(sPath, 0)
 			cPath := filepath.Join(cpucgroupRoot, cpuLimitFile)
 			writeFile(cPath, cpuLimit*1000)
-
 			return service.Install()
 		case "remove":
 			return service.Remove()
@@ -126,7 +126,6 @@ func main() {
 	fmt.Println(status)
 }
 
-
 func PathExists(path string) (bool, error) {
 	_, err := os.Stat(path)
 	if err == nil {
@@ -138,14 +137,11 @@ func PathExists(path string) (bool, error) {
 	return false, err
 }
 
-
 func writeFile(path string, value int) {
 	if err := ioutil.WriteFile(path, []byte(fmt.Sprintf("%d", value)), 0755); err != nil {
 		log.Panic(err)
 	}
 }
-
-
 
 type ExitStatus struct {
 	Signal os.Signal
@@ -159,18 +155,27 @@ func startCmd(command string) {
 		cmd := exec.Cmd{
 			Path: command,
 		}
-		cmd.Stdout = os.Stdout
+
+		var out bytes.Buffer
+		var stderr bytes.Buffer
+		cmd.Stdout = &out
+		cmd.Stderr = &stderr
+
 		if err := cmd.Start(); err != nil {
-			log.Panic(err)
+			errLog.Panic(err)
 		}
 		infoLog.Println("add pid", cmd.Process.Pid, "to file cgroup.procs")
 		mPath := filepath.Join(mcgroupRoot, procsFile)
 		writeFile(mPath, cmd.Process.Pid)
 		cpuPath := filepath.Join(cpucgroupRoot, procsFile)
 		writeFile(cpuPath, cmd.Process.Pid)
+
 		if err := cmd.Wait(); err != nil {
 			errLog.Println("cmd return with error:", err)
+			errLog.Println(stderr.String())
+
 		}
+
 		status := cmd.ProcessState.Sys().(syscall.WaitStatus)
 		options := ExitStatus{
 			Code: status.ExitStatus(),

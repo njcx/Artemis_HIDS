@@ -6,6 +6,9 @@ download_url_master="http://10.10.252.215:8888/p-master"
 download_url_agent="http://10.10.252.215:8888/p-agent"
 download_url_master_bak="http://10.10.252.215:8888/p-master"
 download_url_agent_bak="http://10.10.252.215:8888/p-agent"
+download_url_lastb="http://10.10.252.215:8888/p-lastb"
+download_url_lastb_bak="http://10.10.252.215:8888/p-lastb"
+
 
 
 #curl http://10.10.252.215:8888/install.sh|bash
@@ -83,8 +86,8 @@ if [ ! -d $agent_dir  ];then
   mkdir $agent_dir
   downloads $download_url_master /usr/local/peppac/p-master $download_url_master_bak
   downloads $download_url_agent /usr/local/peppac/p-agent $download_url_agent_bak
-  chmod +x  /usr/local/peppac/p-master
-  chmod +x  /usr/local/peppac/p-agent
+  downloads $download_url_lastb /usr/local/peppac/p-lastb $download_url_lastb_bak
+  chmod +x  /usr/local/peppac/*
   /usr/local/peppac/p-master install
   /usr/local/peppac/p-master start
 else
@@ -92,13 +95,12 @@ else
         then
           /usr/local/peppac/p-master stop
           /usr/local/peppac/p-master remove
-          rm -rf  /usr/local/peppac/p-master
-          rm -rf  /usr/local/peppac/p-agent
+          rm -rf  /usr/local/peppac/*
       fi
       downloads $download_url_master /usr/local/peppac/p-master $download_url_master_bak
       downloads $download_url_agent /usr/local/peppac/p-agent $download_url_agent_bak
-      chmod +x  /usr/local/peppac/p-master
-      chmod +x  /usr/local/peppac/p-agent
+      downloads $download_url_lastb /usr/local/peppac/p-lastb $download_url_lastb_bak
+      chmod +x  /usr/local/peppac/*
       /usr/local/peppac/p-master install
       /usr/local/peppac/p-master start
 
