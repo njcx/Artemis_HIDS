@@ -80,21 +80,27 @@ func getLastb(t string) (result []map[string]string) {
 	}
 	out := Cmdexec(cmd)
 	logList := strings.Split(out, "\n")
-	for _, v := range logList[0 : len(logList)-3] {
-		m := make(map[string]string)
-		reg := regexp.MustCompile("\\s+")
-		v = reg.ReplaceAllString(strings.TrimSpace(v), " ")
-		s := strings.Split(v, " ")
-		if len(s) < 4 {
-			continue
+	if len(logList) >=3 {
+		s :=len(logList)
+		if s ==3{
+			s=s+1
 		}
-		m["status"] = "false"
-		m["username"] = s[0]
-		m["remote"] = s[2]
-		t, _ := time.Parse("2006-01-02T15:04:05Z0700", s[3])
-		m["time"] = t.Format("2006-01-02T15:04:05Z07:00")
-		Config.Lasttime = t.Format("20060102150405")
-		result = append(result, m)
+		for _, v := range logList[0 : s-3] {
+			m := make(map[string]string)
+			reg := regexp.MustCompile("\\s+")
+			v = reg.ReplaceAllString(strings.TrimSpace(v), " ")
+			s := strings.Split(v, " ")
+			if len(s) < 4 {
+				continue
+			}
+			m["status"] = "false"
+			m["username"] = s[0]
+			m["remote"] = s[2]
+			t, _ := time.Parse("2006-01-02T15:04:05Z0700", s[3])
+			m["time"] = t.Format("2006-01-02T15:04:05Z07:00")
+			Config.Lasttime = t.Format("20060102150405")
+			result = append(result, m)
+		}
 	}
 	return
 }
