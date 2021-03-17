@@ -155,10 +155,8 @@ func startCmd(command string) {
 		cmd := exec.Cmd{
 			Path: command,
 		}
-
-		var out bytes.Buffer
+		
 		var stderr bytes.Buffer
-		cmd.Stdout = &out
 		cmd.Stderr = &stderr
 
 		if err := cmd.Start(); err != nil {
