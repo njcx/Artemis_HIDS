@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"io/ioutil"
 	"os/exec"
+	"io"
 )
 
 const (
@@ -26,8 +27,7 @@ const (
 	cpucgroupRoot 	=  "/sys/fs/cgroup/cpu/"+Name
 )
 
-
-var stdlog, errlog *log.Logger
+var infoLog, errLog *log.Logger
 
 type Service struct {
 	daemon.Daemon
@@ -102,21 +102,23 @@ func (service *Service) Manage() (string, error) {
 }
 
 func init() {
-	stdlog = log.New(os.Stdout, "", log.Ldate|log.Ltime)
-	errlog = log.New(os.Stderr, "", log.Ldate|log.Ltime)
+	errFile,err:=os.OpenFile("/var/log/p-master.log",os.O_CREATE|os.O_WRONLY|os.O_APPEND,0666)
+	if err!=nil{
+		log.Fatalln("open log file failed, err:",err)
+	}
+	 infoLog = log.New(io.MultiWriter(os.Stdout,errFile),"Info:",log.Ldate | log.Ltime | log.Lshortfile)
+	 errLog =log.New(io.MultiWriter(os.Stderr,errFile),"Error:",log.Ldate | log.Ltime | log.Lshortfile)
 }
 
 func main() {
 	srv, err := daemon.New(name, description, daemon.SystemDaemon,"nil")
 	if err != nil {
-		errlog.Println("Error: ", err)
-		os.Exit(1)
+		errLog.Fatalln("Error: ", err)
 	}
 	service := &Service{srv}
 	status, err := service.Manage()
 	if err != nil {
-		errlog.Println(status, "\nError: ", err)
-		os.Exit(1)
+		errLog.Fatalln("Error: ", err)
 	}
 	fmt.Println(status)
 }
@@ -158,13 +160,13 @@ func startCmd(command string) {
 		if err := cmd.Start(); err != nil {
 			log.Panic(err)
 		}
-		fmt.Println("add pid", cmd.Process.Pid, "to file cgroup.procs")
+		infoLog.Println("add pid", cmd.Process.Pid, "to file cgroup.procs")
 		mPath := filepath.Join(mcgroupRoot, procsFile)
 		writeFile(mPath, cmd.Process.Pid)
 		cpuPath := filepath.Join(cpucgroupRoot, procsFile)
 		writeFile(cpuPath, cmd.Process.Pid)
 		if err := cmd.Wait(); err != nil {
-			fmt.Println("cmd return with error:", err)
+			errLog.Println("cmd return with error:", err)
 		}
 		status := cmd.ProcessState.Sys().(syscall.WaitStatus)
 		options := ExitStatus{
@@ -181,12 +183,12 @@ func startCmd(command string) {
 		status := <-restart
 		switch status.Signal {
 		case os.Kill:
-			fmt.Println("app is killed by system")
+			errLog.Println("app is killed by system")
 		default:
-			fmt.Println("app exit with code:", status.Code)
+			errLog.Println("app exit with code:", status.Code)
 			return
 		}
-		fmt.Println("restart app..")
+		errLog.Println("restart app..")
 		go runner()
 	}
 }
