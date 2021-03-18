@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"log"
 	"time"
+	"errors"
 	"peppa_hids/utils/gopacket"
 	"peppa_hids/utils/gopacket/layers"
-	"peppa_hids/utils/pcap"
+	"peppa_hids/utils/gopacket/pcap"
 	common "peppa_hids/collect"
 	log2 "peppa_hids/utils/log"
 )
@@ -17,8 +18,8 @@ var (
 )
 
 
-func getDnsPcapHandle(ip string) (*pcap.Pcap, error) {
-	devs, err := pcap.Findalldevs()
+func getDnsPcapHandle(ip string) (*pcap.Handle, error) {
+	devs, err := pcap.FindAllDevs()
 	if err != nil {
 		return nil, err
 	}
@@ -35,12 +36,12 @@ func getDnsPcapHandle(ip string) (*pcap.Pcap, error) {
 	if device == "" {
 		return nil, errors.New("find device error")
 	}
-	h, err := pcap.Openlive(device, 65535, true, 0)
+	h, err := pcap.OpenLive(device, 65535, true, pcap.BlockForever)
 	if err != nil {
 		return nil, err
 	}
 	log.Println("StartDnSMonitor")
-	err = h.Setfilter("udp and port 53")
+	err = h.SetBPFFilter("udp and port 53")
 	if err != nil {
 		return nil, err
 	}
