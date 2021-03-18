@@ -3,169 +3,97 @@ package main
 import (
 	"fmt"
 	"log"
-	"strconv"
-	"sync"
 	"time"
-
+	"errors"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
+
 )
 
 var (
-	devName    string
-	err        error
-	handle     *pcap.Handle
-	InetAddr   string
 	SrcIP      string
 	DstIP      string
 )
 
-type DnsMsg struct {
-	Timestamp       string
-	SourceIP        string
-	DestinationIP   string
-	DnsQuery        string
-	DnsAnswer       []string
-	DnsAnswerTTL    []string
-	NumberOfAnswers string
-	DnsResponseCode string
-	DnsOpCode       string
+
+func getDnsPcapHandle(ip string) (*pcap.Handle, error) {
+	devs, err := pcap.FindAllDevs()
+	if err != nil {
+		return nil, err
+	}
+	var device string
+	for _, dev := range devs {
+		for _, v := range dev.Addresses {
+			if v.IP.String() == ip {
+				device = dev.Name
+				break
+			}
+		}
+	}
+
+	if device == "" {
+		return nil, errors.New("find device error")
+	}
+	h, err := pcap.OpenLive(device, 65535, true, pcap.BlockForever)
+	if err != nil {
+		return nil, err
+	}
+	log.Println("StartDnSMonitor")
+	err = h.SetBPFFilter("udp and port 53")
+	if err != nil {
+		return nil, err
+	}
+	return h, nil
 }
 
 
 
 func main() {
 
-	devName = "en3"
 	var eth layers.Ethernet
 	var ip4 layers.IPv4
 	var udp layers.UDP
 	var dns layers.DNS
-
 	var payload gopacket.Payload
 
-	wg := new(sync.WaitGroup)
-
-	// Find all devices
-	devices, devErr := pcap.FindAllDevs()
-	if devErr != nil {
-		log.Fatal(devErr)
-	}
-
-	// Print device information
-	fmt.Println("Devices found:")
-	for _, device := range devices {
-		fmt.Println("\nName: ", device.Name)
-		fmt.Println("Description: ", device.Description)
-		fmt.Println("Devices addresses: ", device.Description)
-		for _, address := range device.Addresses {
-			if device.Name == devName {
-				InetAddr = address.IP.String()
-				break
-			}
-			fmt.Println("- IP address: ", address.IP)
-			fmt.Println("- Subnet mask: ", address.Netmask)
-		}
-	}
-
-
-
-	// Open device
-	handle, err = pcap.OpenLive(devName, 1600, false, pcap.BlockForever)
+	var resultdata =make(map[string]string)
+	h, err := getDnsPcapHandle("172.18.20.18")
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("get pcaphandle failed, err:", err)
+		return
 	}
-	defer handle.Close()
-
-	// Set filter
-	var filter string = "udp and dst port 53"
-	fmt.Println("    Filter: ", filter)
-	err := handle.SetBPFFilter(filter)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	parser := gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, &eth, &ip4, &udp, &dns, &payload)
-
-
-
-
+	resultdata["source"] = "dns"
+	parser := gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, &eth, &ip4,&udp, &dns, &payload)
 	decodedLayers := make([]gopacket.LayerType, 0, 10)
 	for {
-		data, _, err := handle.ReadPacketData()
+		data, _, err := h.ReadPacketData()
 		if err != nil {
 			fmt.Println("Error reading packet data: ", err)
 			continue
 		}
-
-
 		err = parser.DecodeLayers(data, &decodedLayers)
 		for _, typ := range decodedLayers {
-
-
 			switch typ {
 			case layers.LayerTypeIPv4:
 				SrcIP = ip4.SrcIP.String()
 				DstIP = ip4.DstIP.String()
 			case layers.LayerTypeDNS:
-
-				dnsOpCode := int(dns.OpCode)
-				dnsResponseCode := int(dns.ResponseCode)
-				dnsANCount := int(dns.ANCount)
-
-				fmt.Println(dnsOpCode,dnsResponseCode,dnsANCount)
-				//
-				//if (dnsANCount == 0 && dnsResponseCode > 0) || (dnsANCount > 0) {
-
-					fmt.Println("------------------------")
-					fmt.Println("    DNS Record Detected")
-
+				if !dns.QR {
 					for _, dnsQuestion := range dns.Questions {
-
 						t := time.Now()
 						timestamp := t.Format(time.RFC3339)
-
-						// Add a document to the index
-						d := DnsMsg{Timestamp: timestamp, SourceIP: SrcIP,
-							DestinationIP:   DstIP,
-							DnsQuery:        string(dnsQuestion.Name),
-							DnsOpCode:       strconv.Itoa(dnsOpCode),
-							DnsResponseCode: strconv.Itoa(dnsResponseCode),
-							NumberOfAnswers: strconv.Itoa(dnsANCount)}
-						fmt.Println("    DNS OpCode: ", strconv.Itoa(int(dns.OpCode)))
-						fmt.Println("    DNS ResponseCode: ", dns.ResponseCode.String())
-						fmt.Println("    DNS # Answers: ", strconv.Itoa(dnsANCount))
-						fmt.Println("    DNS Question: ", string(dnsQuestion.Name))
-						fmt.Println("    DNS Endpoints: ", SrcIP, DstIP)
-
-						if dnsANCount > 0 {
-
-							for _, dnsAnswer := range dns.Answers {
-								d.DnsAnswerTTL = append(d.DnsAnswerTTL, fmt.Sprint(dnsAnswer.TTL))
-								if dnsAnswer.IP.String() != "<nil>" {
-									fmt.Println("    DNS Answer: ", dnsAnswer.IP.String())
-									d.DnsAnswer = append(d.DnsAnswer, dnsAnswer.IP.String())
-								}
-							}
-
-						}
-
-						wg.Add(1)
-
-						fmt.Println(d)
-						//sendToElastic(d, wg)
-
-
-
+						resultdata["timestamp"] = timestamp
+						resultdata["src"] = SrcIP
+						resultdata["dst"] = DstIP
+						resultdata["domain"] = string(dnsQuestion.Name)
+						resultdata["type"] = dnsQuestion.Type.String()
+						resultdata["class"] = dnsQuestion.Class.String()
+						fmt.Println(resultdata)
 					}
-				}
 
+				}
 			}
 		}
-
-		if err != nil {
-			fmt.Println("  Error encountered:", err)
-		}
 	}
-//}
+}

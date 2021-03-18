@@ -5,9 +5,9 @@ import (
 	"log"
 	"time"
 	"errors"
-	"peppa_hids/utils/gopacket"
-	"peppa_hids/utils/gopacket/layers"
-	"peppa_hids/utils/gopacket/pcap"
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
+	"github.com/google/gopacket/pcap"
 	common "peppa_hids/collect"
 	log2 "peppa_hids/utils/log"
 )
@@ -58,7 +58,7 @@ func StartDNSNetSniff(resultChan chan map[string]string) {
 	var dns layers.DNS
 	var payload gopacket.Payload
 
-	var resultdata map[string]string
+	var resultdata =make(map[string]string)
 	h, err := getDnsPcapHandle(common.LocalIP)
 	if err != nil {
 		log2.Info.Println("get pcaphandle failed, err:", err)
@@ -85,8 +85,8 @@ func StartDNSNetSniff(resultChan chan map[string]string) {
 						t := time.Now()
 						timestamp := t.Format(time.RFC3339)
 						resultdata["timestamp"] = timestamp
-						resultdata["srcip"] = SrcIP
-						resultdata["dstip"] = DstIP
+						resultdata["src"] = SrcIP
+						resultdata["dst"] = DstIP
 						resultdata["domain"] = string(dnsQuestion.Name)
 						resultdata["type"] = dnsQuestion.Type.String()
 						resultdata["class"] = dnsQuestion.Class.String()
