@@ -3,7 +3,6 @@ package monitor
 import (
 	"fmt"
 	"log"
-	"time"
 	"errors"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
