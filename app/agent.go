@@ -130,8 +130,8 @@ func (a *Agent) monitor() {
 	go monitor.StartDNSNetSniff(resultChan)
 	go monitor.StartFileMonitor(resultChan)
 	go func(result chan map[string]string) {
-		var resultdata []map[string]string
 		var data map[string]string
+		var resultdata []map[string]string
 		for {
 			data = <-result
 			data["time"] = fmt.Sprintf("%d", time.Now().Unix())

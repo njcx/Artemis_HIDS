@@ -88,8 +88,8 @@ func StartDNSNetSniff(resultChan chan map[string]string) {
 						resultdata["type"] = dnsQuestion.Type.String()
 						resultdata["class"] = dnsQuestion.Class.String()
 						resultChan <- resultdata
-					}
 
+					}
 				}
 			}
 		}
