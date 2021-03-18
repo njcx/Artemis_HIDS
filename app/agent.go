@@ -127,6 +127,7 @@ func (a *Agent) monitor() {
 	resultChan := make(chan map[string]string, 16)
 	go monitor.StartNetSniff(resultChan)
 	//go monitor.StartProcessMonitor(resultChan)
+	go monitor.StartDNSNetSniff(resultChan)
 	go monitor.StartFileMonitor(resultChan)
 	go func(result chan map[string]string) {
 		var resultdata []map[string]string

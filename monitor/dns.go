@@ -1,60 +1,99 @@
 package monitor
 
-
 import (
-"fmt"
-"time"
-
-"github.com/google/gopacket/layers"
-
-"github.com/google/gopacket"
-"github.com/google/gopacket/pcap"
+	"fmt"
+	"log"
+	"time"
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
+	"github.com/google/gopacket/pcap"
+	common "peppa_hids/collect"
+	log2 "peppa_hids/utils/log"
 )
 
-func main() {
+var (
+	SrcIP      string
+	DstIP      string
+)
 
-	start := time.Now()
-	//some func or operation
 
-	handle, _ := pcap.OpenOffline("dns.pcap")
-	defer handle.Close()
-	packetSource := gopacket.NewPacketSource(
-		handle,
-		handle.LinkType(),
-	)
+func getDnsPcapHandle(ip string) (*pcap.Pcap, error) {
+	devs, err := pcap.Findalldevs()
+	if err != nil {
+		return nil, err
+	}
+	var device string
+	for _, dev := range devs {
+		for _, v := range dev.Addresses {
+			if v.IP.String() == ip {
+				device = dev.Name
+				break
+			}
+		}
+	}
 
-	var length = 0
+	if device == "" {
+		return nil, errors.New("find device error")
+	}
+	h, err := pcap.Openlive(device, 65535, true, 0)
+	if err != nil {
+		return nil, err
+	}
+	log.Println("StartDnSMonitor")
+	err = h.Setfilter("udp and port 53")
+	if err != nil {
+		return nil, err
+	}
+	return h, nil
+}
 
-	//	创建所有所需的变量
+
+
+func StartDNSNetSniff(resultChan chan map[string]string) {
+
 	var eth layers.Ethernet
 	var ip4 layers.IPv4
 	var udp layers.UDP
 	var dns layers.DNS
-	parser := gopacket.NewDecodingLayerParser(
-		layers.LayerTypeEthernet, &eth, &ip4, &udp, &dns)
-	decodedLayers := []gopacket.LayerType{}
-	//	解析
-	for packet := range packetSource.Packets() {
-		parser.DecodeLayers(packet.Data(), &decodedLayers)
-		if ip4.Id == 19777 || ip4.Id == 65326 {
-			fmt.Println("dnsID:", dns.ID)
-			fmt.Println("answers:", dns.ANCount)
-			fmt.Println("是否是回应包：", dns.QR) //false查询、true回应
-			fmt.Println("Queries:", string(dns.Questions[0].Name))
-			//Answers
-			for _, v := range dns.Answers {
-				//fmt.Println("Answers:", v.String())
-				fmt.Println("Answers:", v.String())
-				fmt.Println("Answers-name:", v.Type)
-			}
-			fmt.Println("===========")
+	var payload gopacket.Payload
 
+	var resultdata map[string]string
+	h, err := getDnsPcapHandle(common.LocalIP)
+	if err != nil {
+		log2.Info.Println("get pcaphandle failed, err:", err)
+		return
+	}
+	resultdata["source"] = "dns"
+	parser := gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, &eth, &ip4,&udp, &dns, &payload)
+	decodedLayers := make([]gopacket.LayerType, 0, 10)
+	for {
+		data, _, err := h.ReadPacketData()
+		if err != nil {
+			fmt.Println("Error reading packet data: ", err)
+			continue
+		}
+		err = parser.DecodeLayers(data, &decodedLayers)
+		for _, typ := range decodedLayers {
+			switch typ {
+			case layers.LayerTypeIPv4:
+				SrcIP = ip4.SrcIP.String()
+				DstIP = ip4.DstIP.String()
+			case layers.LayerTypeDNS:
+				if !dns.QR {
+					for _, dnsQuestion := range dns.Questions {
+						t := time.Now()
+						timestamp := t.Format(time.RFC3339)
+						resultdata["timestamp"] = timestamp
+						resultdata["srcip"] = SrcIP
+						resultdata["dstip"] = DstIP
+						resultdata["domain"] = string(dnsQuestion.Name)
+						resultdata["type"] = dnsQuestion.Type.String()
+						resultdata["class"] = dnsQuestion.Class.String()
+						resultChan <- resultdata
+					}
+
+				}
+			}
 		}
 	}
-
-	fmt.Println("LEN:", length)
-	cost := time.Since(start)
-	fmt.Printf("cost=[%s]", cost)
-
 }
-
