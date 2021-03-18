@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log"
 	"time"
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcap"
+	"peppa_hids/utils/gopacket"
+	"peppa_hids/utils/gopacket/layers"
+	"peppa_hids/utils/gopacket/pcap"
 	common "peppa_hids/collect"
 	log2 "peppa_hids/utils/log"
 )
