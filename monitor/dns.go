@@ -64,7 +64,7 @@ func StartDNSNetSniff(resultChan chan map[string]string) {
 		log2.Info.Println("get pcaphandle failed, err:", err)
 		return
 	}
-	resultdata["source"] = "dns"
+
 	parser := gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, &eth, &ip4,&udp, &dns, &payload)
 	decodedLayers := make([]gopacket.LayerType, 0, 10)
 	for {
@@ -82,9 +82,7 @@ func StartDNSNetSniff(resultChan chan map[string]string) {
 			case layers.LayerTypeDNS:
 				if !dns.QR {
 					for _, dnsQuestion := range dns.Questions {
-						t := time.Now()
-						timestamp := t.Format(time.RFC3339)
-						resultdata["timestamp"] = timestamp
+						resultdata["source"] = "dns"
 						resultdata["src"] = SrcIP
 						resultdata["dst"] = DstIP
 						resultdata["domain"] = string(dnsQuestion.Name)
