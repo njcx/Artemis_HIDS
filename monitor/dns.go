@@ -6,7 +6,7 @@ import (
 	"time"
 	"peppa_hids/utils/gopacket"
 	"peppa_hids/utils/gopacket/layers"
-	"peppa_hids/utils/gopacket/pcap"
+	"peppa_hids/utils/pcap"
 	common "peppa_hids/collect"
 	log2 "peppa_hids/utils/log"
 )
