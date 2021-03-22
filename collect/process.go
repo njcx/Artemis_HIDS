@@ -3,6 +3,7 @@ package collect
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -47,6 +48,32 @@ func getcmdline(pid int) string {
 	}
 	return strings.TrimSpace(string(cmdlineBytes))
 }
+
+func getfd(pid int) (resultData map[string]string)  {
+	fdDir := fmt.Sprintf("/proc/%d/fd", pid)
+
+	var err error
+	dirs, err = dirsFile(fdDir)
+	if err != nil || len(dirs) == 0 {
+		return
+	}
+
+	m := make(map[string]string)
+	for _, v := range dirs {
+		//pid, err := strconv.Atoi(v)
+		fileInfo, err := os.Lstat(v)
+		if err != nil {
+			continue
+		}
+
+		fmt.Println(fileInfo)
+
+	}
+
+	return m
+
+}
+
 func getStatus(pid int) (status map[string]string) {
 	status = make(map[string]string)
 	statusFile := fmt.Sprintf("/proc/%d/status", pid)
@@ -82,6 +109,25 @@ func dirsUnder(dirPath string) ([]string, error) {
 			if name != "." && name != ".." {
 				ret = append(ret, name)
 			}
+		}
+	}
+	return ret, nil
+}
+
+func dirsFile(dirPath string) ([]string, error) {
+	fs, err := ioutil.ReadDir(dirPath)
+	if err != nil {
+		return []string{}, err
+	}
+	sz := len(fs)
+	if sz == 0 {
+		return []string{}, nil
+	}
+	ret := make([]string, 0, sz)
+	for i := 0; i < sz; i++ {
+		if !fs[i].IsDir() {
+			name := fs[i].Name()
+			ret = append(ret, name)
 		}
 	}
 	return ret, nil
