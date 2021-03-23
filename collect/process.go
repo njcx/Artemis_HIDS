@@ -1,5 +1,36 @@
+// +build linux
+
 package collect
 
+/*
+
+#include <sys/sysctl.h>
+
+uid_t uidFromPid(pid_t pid)
+{
+    uid_t uid = -1;
+
+    struct kinfo_proc process;
+    size_t procBufferSize = sizeof(process);
+
+    // Compose search path for sysctl. Here you can specify PID directly.
+    const u_int pathLenth = 4;
+    int path[pathLenth] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, pid};
+
+    int sysctlResult = sysctl(path, pathLenth, &process, &procBufferSize, NULL, 0);
+
+    // If sysctl did not fail and process with PID available - take UID.
+    if ((sysctlResult == 0) && (procBufferSize != 0))
+    {
+        uid = process.kp_eproc.e_ucred.cr_uid;
+    }
+
+    return uid;
+}
+
+*/
+
+import "C"
 import (
 	"fmt"
 	"io/ioutil"
@@ -27,6 +58,8 @@ func GetProcessList() (resultData []map[string]string) {
 		m["pid"] = v
 		m["ppid"] = statusInfo["PPid"]
 		m["name"] = statusInfo["Name"]
+		m["uid"] = C.uidFromPid(strconv.Atoi(v))
+		m["puid"] = C.uidFromPid(strconv.Atoi(statusInfo["PPid"]))
 		m["fd"] = fd
 		m["command"] = command
 		resultData = append(resultData, m)
@@ -109,7 +142,7 @@ func getfd(pid int) string {
 			continue
 		}
 		countSplit := strings.Split(v, "/")
-		m=append(m,strings.Join(countSplit[2:], "/")+"---"+fileInfo)
+		m=append(m,strings.Join(countSplit[3:], "/")+"---"+fileInfo)
 
 	}
 
