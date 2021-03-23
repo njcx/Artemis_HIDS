@@ -4,35 +4,35 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 )
 
 func main() {
-  getfd(26385)
+  fmt.Println(getfd(1713))
 }
 
 
-func getfd(pid int) (resultData map[string]string)  {
+
+func getfd(pid int) string {
 	fdDir := fmt.Sprintf("/proc/%d/fd", pid)
 
 	dirs, err := dirsFile(fdDir)
 	if err != nil || len(dirs) == 0 {
-		return
+		return ""
 	}
 
-	m := make(map[string]string)
+	m := []string{}
 	for _, v := range dirs {
-		//pid, err := strconv.Atoi(v)
 		fileInfo, err := os.Readlink(v)
 		if err != nil {
 			continue
 		}
-
-		fmt.Println(fileInfo)
+		countSplit := strings.Split(v, "/")
+		m=append(m,strings.Join(countSplit[2:], "/")+"---"+fileInfo)
 
 	}
 
-	return m
-
+	return strings.Join(m, " ")
 }
 
 func dirsFile(dirPath string) ([]string, error) {

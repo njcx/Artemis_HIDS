@@ -22,10 +22,12 @@ func GetProcessList() (resultData []map[string]string) {
 		}
 		statusInfo := getStatus(pid)
 		command := getcmdline(pid)
+		fd := getfd(pid)
 		m := make(map[string]string)
 		m["pid"] = v
 		m["ppid"] = statusInfo["PPid"]
 		m["name"] = statusInfo["Name"]
+		m["fd"] = fd
 		m["command"] = command
 		resultData = append(resultData, m)
 	}
@@ -49,30 +51,7 @@ func getcmdline(pid int) string {
 	return strings.TrimSpace(string(cmdlineBytes))
 }
 
-func getfd(pid int) (resultData map[string]string)  {
-	fdDir := fmt.Sprintf("/proc/%d/fd", pid)
 
-	var err error
-	dirs, err = dirsFile(fdDir)
-	if err != nil || len(dirs) == 0 {
-		return
-	}
-
-	m := make(map[string]string)
-	for _, v := range dirs {
-		//pid, err := strconv.Atoi(v)
-		fileInfo, err := os.Lstat(v)
-		if err != nil {
-			continue
-		}
-
-		fmt.Println(fileInfo)
-
-	}
-
-	return m
-
-}
 
 func getStatus(pid int) (status map[string]string) {
 	status = make(map[string]string)
@@ -114,6 +93,29 @@ func dirsUnder(dirPath string) ([]string, error) {
 	return ret, nil
 }
 
+
+func getfd(pid int) string {
+	fdDir := fmt.Sprintf("/proc/%d/fd", pid)
+
+	dirs, err := dirsFile(fdDir)
+	if err != nil || len(dirs) == 0 {
+		return ""
+	}
+
+	m := []string{}
+	for _, v := range dirs {
+		fileInfo, err := os.Readlink(v)
+		if err != nil {
+			continue
+		}
+		countSplit := strings.Split(v, "/")
+		m=append(m,strings.Join(countSplit[2:], "/")+"---"+fileInfo)
+
+	}
+
+	return strings.Join(m, " ")
+}
+
 func dirsFile(dirPath string) ([]string, error) {
 	fs, err := ioutil.ReadDir(dirPath)
 	if err != nil {
@@ -126,7 +128,7 @@ func dirsFile(dirPath string) ([]string, error) {
 	ret := make([]string, 0, sz)
 	for i := 0; i < sz; i++ {
 		if !fs[i].IsDir() {
-			name := fs[i].Name()
+			name := dirPath + "/" + fs[i].Name()
 			ret = append(ret, name)
 		}
 	}
