@@ -1,36 +1,5 @@
-// +build linux
-
 package collect
 
-/*
-
-#include <sys/sysctl.h>
-
-uid_t uidFromPid(pid_t pid)
-{
-    uid_t uid = -1;
-
-    struct kinfo_proc process;
-    size_t procBufferSize = sizeof(process);
-
-    // Compose search path for sysctl. Here you can specify PID directly.
-    const u_int pathLenth = 4;
-    int path[pathLenth] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, pid};
-
-    int sysctlResult = sysctl(path, pathLenth, &process, &procBufferSize, NULL, 0);
-
-    // If sysctl did not fail and process with PID available - take UID.
-    if ((sysctlResult == 0) && (procBufferSize != 0))
-    {
-        uid = process.kp_eproc.e_ucred.cr_uid;
-    }
-
-    return uid;
-}
-
-*/
-
-import "C"
 import (
 	"fmt"
 	"io/ioutil"
@@ -52,14 +21,43 @@ func GetProcessList() (resultData []map[string]string) {
 			continue
 		}
 		statusInfo := getStatus(pid)
+		ppid,_ := strconv.Atoi(statusInfo["PPid"])
+		pstatusInfo := getStatus(ppid)
 		command := getcmdline(pid)
 		fd := getfd(pid)
 		m := make(map[string]string)
 		m["pid"] = v
 		m["ppid"] = statusInfo["PPid"]
 		m["name"] = statusInfo["Name"]
-		m["uid"] = C.uidFromPid(strconv.Atoi(v))
-		m["puid"] = C.uidFromPid(strconv.Atoi(statusInfo["PPid"]))
+
+		if len(strings.Fields(statusInfo["Uid"])) == 4 {
+			m["uid"] = strings.Fields(statusInfo["Uid"])[0]
+			m["euid"] = strings.Fields(statusInfo["Uid"])[1]
+			m["suid"] = strings.Fields(statusInfo["Uid"])[2]
+			m["fsuid"] =strings.Fields(statusInfo["Uid"])[3]
+		}
+
+		if len(strings.Fields(statusInfo["Gid"])) ==4 {
+			m["gid"] = strings.Fields(statusInfo["Gid"])[0]
+			m["egid"] = strings.Fields(statusInfo["Gid"])[1]
+			m["sgid"] = strings.Fields(statusInfo["Gid"])[2]
+			m["fsgid"] =strings.Fields(statusInfo["Gid"])[3]
+		}
+
+		if len(strings.Fields(pstatusInfo["Uid"])) ==4  {
+			m["puid"] = strings.Fields(pstatusInfo["Uid"])[0]
+			m["peuid"] = strings.Fields(pstatusInfo["Uid"])[1]
+			m["psuid"] = strings.Fields(pstatusInfo["Uid"])[2]
+			m["pfsuid"] =strings.Fields(pstatusInfo["Uid"])[3]
+		}
+
+		if len(strings.Fields(pstatusInfo["Gid"])) ==4 {
+			m["pgid"] = strings.Fields(pstatusInfo["Gid"])[0]
+			m["pegid"] = strings.Fields(pstatusInfo["Gid"])[1]
+			m["psgid"] = strings.Fields(pstatusInfo["Gid"])[2]
+			m["pfsgid"] =strings.Fields(pstatusInfo["Gid"])[3]
+		}
+
 		m["fd"] = fd
 		m["command"] = command
 		resultData = append(resultData, m)
@@ -101,6 +99,7 @@ func getStatus(pid int) (status map[string]string) {
 			status[kv[0]] = strings.TrimSpace(kv[1])
 		}
 	}
+	//fmt.Println(status)
 	return
 }
 
