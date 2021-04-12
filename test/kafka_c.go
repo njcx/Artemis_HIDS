@@ -1,10 +1,9 @@
 package main
 
 import (
-	"peppa_hids/utils/kafka"
 	"fmt"
+	"peppa_hids/utils/kafka"
 )
-
 
 func main() {
 	// get kafka reader using environment variables.
@@ -21,4 +20,3 @@ func main() {
 
 	}
 }
-

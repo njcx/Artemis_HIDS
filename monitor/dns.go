@@ -1,21 +1,20 @@
 package monitor
 
 import (
-	"fmt"
-	"log"
 	"errors"
+	"fmt"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
+	"log"
 	common "peppa_hids/collect"
 	log2 "peppa_hids/utils/log"
 )
 
 var (
-	SrcIP      string
-	DstIP      string
+	SrcIP string
+	DstIP string
 )
-
 
 func getDnsPcapHandle(ip string) (*pcap.Handle, error) {
 	devs, err := pcap.FindAllDevs()
@@ -47,8 +46,6 @@ func getDnsPcapHandle(ip string) (*pcap.Handle, error) {
 	return h, nil
 }
 
-
-
 func StartDNSNetSniff(resultChan chan map[string]string) {
 
 	var eth layers.Ethernet
@@ -57,14 +54,14 @@ func StartDNSNetSniff(resultChan chan map[string]string) {
 	var dns layers.DNS
 	var payload gopacket.Payload
 
-	var resultdata =make(map[string]string)
+	var resultdata = make(map[string]string)
 	h, err := getDnsPcapHandle(common.LocalIP)
 	if err != nil {
 		log2.Info.Println("get pcaphandle failed, err:", err)
 		return
 	}
 
-	parser := gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, &eth, &ip4,&udp, &dns, &payload)
+	parser := gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, &eth, &ip4, &udp, &dns, &payload)
 	decodedLayers := make([]gopacket.LayerType, 0, 10)
 	for {
 		data, _, err := h.ReadPacketData()

@@ -8,15 +8,14 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	common "peppa_hids/collect"
 	"regexp"
 	"strconv"
 	"strings"
-	common "peppa_hids/collect"
 
-	"peppa_hids/utils/pcap"
 	"github.com/fsnotify/fsnotify"
+	"peppa_hids/utils/pcap"
 )
-
 
 func getFileMD5(path string) (string, error) {
 	fileinfo, err := os.Stat(path)

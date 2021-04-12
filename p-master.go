@@ -1,17 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/takama/daemon"
+	"io"
+	"io/ioutil"
 	"log"
 	"os"
-	"os/signal"
-	"syscall"
-	"github.com/takama/daemon"
-	"path/filepath"
-	"io/ioutil"
 	"os/exec"
-	"io"
-	"bytes"
+	"os/signal"
+	"path/filepath"
+	"syscall"
 )
 
 const (
@@ -22,10 +22,10 @@ const (
 	swapLimitFile   = "memory.swappiness"
 	cpuLimitFile    = "cpu.cfs_quota_us"
 	Name            = "Pagent"
-	memoLimit       =  50                                          // 50M
-	mcgroupRoot  	=  "/sys/fs/cgroup/memory/"+Name
-	cpuLimit     	=  5                                           //  5%
-	cpucgroupRoot 	=  "/sys/fs/cgroup/cpu/"+Name
+	memoLimit       = 50 // 50M
+	mcgroupRoot     = "/sys/fs/cgroup/memory/" + Name
+	cpuLimit        = 5 //  5%
+	cpucgroupRoot   = "/sys/fs/cgroup/cpu/" + Name
 )
 
 var infoLog, errLog *log.Logger
@@ -93,11 +93,11 @@ func (service *Service) Manage() (string, error) {
 		case killSignal := <-interrupt:
 			errLog.Println("P-master got signal:", killSignal)
 			if killSignal == os.Interrupt {
-				err :="P-master was interruped by system signal"
+				err := "P-master was interruped by system signal"
 				errLog.Println(err)
 				return err, nil
 			}
-			err :="P-master was killed"
+			err := "P-master was killed"
 			return err, nil
 		}
 	}
@@ -105,16 +105,16 @@ func (service *Service) Manage() (string, error) {
 }
 
 func init() {
-	errFile,err:=os.OpenFile("/var/log/p-master.log",os.O_CREATE|os.O_WRONLY|os.O_APPEND,0666)
-	if err!=nil{
-		log.Fatalln("open log file failed, err:",err)
+	errFile, err := os.OpenFile("/var/log/p-master.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalln("open log file failed, err:", err)
 	}
-	 infoLog = log.New(io.MultiWriter(os.Stdout,errFile),"Info:",log.Ldate | log.Ltime | log.Lshortfile)
-	 errLog =log.New(io.MultiWriter(os.Stderr,errFile),"Error:",log.Ldate | log.Ltime | log.Lshortfile)
+	infoLog = log.New(io.MultiWriter(os.Stdout, errFile), "Info:", log.Ldate|log.Ltime|log.Lshortfile)
+	errLog = log.New(io.MultiWriter(os.Stderr, errFile), "Error:", log.Ldate|log.Ltime|log.Lshortfile)
 }
 
 func main() {
-	srv, err := daemon.New(name, description, daemon.SystemDaemon,"nil")
+	srv, err := daemon.New(name, description, daemon.SystemDaemon, "nil")
 	if err != nil {
 		errLog.Fatalln("Error: ", err)
 	}
@@ -147,7 +147,6 @@ type ExitStatus struct {
 	Signal os.Signal
 	Code   int
 }
-
 
 func startCmd(command string) {
 	restart := make(chan ExitStatus, 1)

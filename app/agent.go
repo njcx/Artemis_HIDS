@@ -3,22 +3,20 @@ package app
 import (
 	"context"
 	"fmt"
-	"net"
-	"strings"
-	"sync"
-	"time"
 	"github.com/json-iterator/go"
 	"go.etcd.io/etcd/client/v3"
+	"net"
 	"peppa_hids/collect"
 	"peppa_hids/monitor"
 	"peppa_hids/utils/kafka"
 	log2 "peppa_hids/utils/log"
+	"strings"
+	"sync"
+	"time"
 )
 
 var etcD = []string{"10.10.116.190:2379"}
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
-
-
 
 type dataInfo struct {
 	IP     string
@@ -44,7 +42,6 @@ func (a *Agent) init() {
 	}
 
 	collect.ServerInfo = collect.GetComInfo()
-
 
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:   etcD,
@@ -77,7 +74,7 @@ func (a *Agent) init() {
 	a.Kafka = kafka.NewKafkaProducer(kafkaHost, kafkaTopic)
 	a.Mutex = new(sync.Mutex)
 
-	_,  err = cli.Put(ctx, "/hids/allhost/"+collect.ServerInfo.Hostname+"--"+collect.LocalIP,
+	_, err = cli.Put(ctx, "/hids/allhost/"+collect.ServerInfo.Hostname+"--"+collect.LocalIP,
 		time.Now().Format("2006-01-02 15:04:05"))
 
 	if err != nil {
@@ -99,7 +96,7 @@ func (a *Agent) init() {
 				a.log("etcd client leaseput failed, err:", err)
 				return
 			}
-			time.Sleep(10*time.Second)
+			time.Sleep(10 * time.Second)
 		}
 		cli.Close()
 	}(cli)
