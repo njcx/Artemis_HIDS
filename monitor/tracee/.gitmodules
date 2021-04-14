@@ -1,3 +1,0 @@
-[submodule "libbpf"]
-	path = tracee-ebpf/3rdparty/libbpf
-	url = https://github.com/libbpf/libbpf
