@@ -2,19 +2,17 @@ package yara
 
 import (
 	"github.com/Velocidex/go-yara"
+	"github.com/netxfly/gops/goprocess"
 	"github.com/shirou/gopsutil/host"
 	"github.com/shirou/gopsutil/net"
-	"github.com/netxfly/gops/goprocess"
 
 	"github.com/netxfly/go-autoruns"
 
 	"sec_check/vars"
 
-
-
 	"encoding/json"
-	"strconv"
 	"fmt"
+	"strconv"
 )
 
 type (
@@ -98,7 +96,7 @@ func SaveProcessResult(err error, result *ProcessScanResult) {
 	}
 }
 
-func DisplayProcessResult() ([]ProcessResult) {
+func DisplayProcessResult() []ProcessResult {
 	pResult := make([]ProcessResult, 0)
 	for pid, result := range vars.ProcessResultMap.Items() {
 		processResult, ok := result.(*ProcessScanResult)
@@ -132,7 +130,7 @@ func SaveFileResult(err error, result *FileScanResult) {
 	}
 }
 
-func DisplayFileResult() ([]FileResult) {
+func DisplayFileResult() []FileResult {
 	fileRet := make([]FileResult, 0)
 	for filename, result := range vars.FileResultMap.Items() {
 		fileResult, ok := result.(*FileScanResult)

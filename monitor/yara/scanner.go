@@ -1,22 +1,20 @@
 package yara
 
 import (
-
 	"github.com/Velocidex/go-yara"
+	cmap "github.com/orcaman/concurrent-map"
 	"github.com/toolkits/slice"
-    cmap "github.com/orcaman/concurrent-map"
 
-	"peppa_hids/utils/log"
 	"os"
+	"path/filepath"
+	"peppa_hids/utils/log"
+	"sec_check/collector"
+	"sec_check/models"
+	"strings"
 	"sync"
 	"time"
-	"strings"
-	"path/filepath"
-	"sec_check/models"
-	"sec_check/collector"
+
 )
-
-
 
 var (
 	Debug    bool
@@ -33,14 +31,9 @@ var (
 	CurrentDir = ""
 )
 
-
-
 type Scanner struct {
-		Rules *yara.Rules
-	}
-
-
-
+	Rules *yara.Rules
+}
 
 func GetFiles(filePath string) (Files []string, err error) {
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
@@ -66,8 +59,6 @@ func GetFiles(filePath string) (Files []string, err error) {
 	}
 	return Files, err
 }
-
-
 
 func NewScanner(rulesData string) (*Scanner, error) {
 	rules, err := LoadRules(rulesData)

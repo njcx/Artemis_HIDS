@@ -1,13 +1,12 @@
 package yara
 
 import (
+	"github.com/Velocidex/go-yara"
 	"os"
 	"path"
 	"path/filepath"
-	"github.com/Velocidex/go-yara"
-	"strings"
 	"peppa_hids/utils/log"
-
+	"strings"
 )
 
 func TestRule(rulesPath string, debug bool) (ruleFiles []string) {
@@ -60,12 +59,12 @@ func TestRule(rulesPath string, debug bool) (ruleFiles []string) {
 	return ruleFiles
 }
 
-func InitRule(rulePath string, debug bool) (error) {
+func InitRule(rulePath string, debug bool) error {
 	files := TestRule(rulePath, debug)
 	return initRule(files, debug)
 }
 
-func initRule(ruleFiles []string, debug bool) (error) {
+func initRule(ruleFiles []string, debug bool) error {
 	compiler, err := yara.NewCompiler()
 	if err != nil {
 		log.Log.Panic(err)
