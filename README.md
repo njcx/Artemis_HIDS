@@ -46,7 +46,7 @@ yum install llvm-toolset-9.0  -y
 
 ```
 
-环境变量如下
+环境变量如下：
 
 ```go
  
@@ -55,3 +55,10 @@ export PATH=$PATH:/opt/rh/devtoolset-8/root/bin
 
 ```
 
+
+在 /etc/ld.so.conf 添加如下内容，并 ldconfig：
+
+```go
+/opt/rh/llvm-toolset-9.0/root/lib64
+
+```
