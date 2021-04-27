@@ -1,16 +1,5 @@
-// +build ignore
-// ^^ this is a golang build tag meant to exclude this C file from compilation by the CGO compiler
 
-/* In Linux 5.4 asm_inline was introduced, but it's not supported by clang.
- * Redefine it to just asm to enable successful compilation.
- * see https://github.com/iovisor/bcc/commit/2d1497cde1cc9835f759a707b42dea83bee378b8 for more details
- */
 #include <linux/types.h>
-#ifdef asm_inline
-#undef asm_inline
-#define asm_inline asm
-#endif
-
 #include <uapi/linux/ptrace.h>
 #include <uapi/linux/in.h>
 #include <uapi/linux/in6.h>
@@ -43,12 +32,8 @@
 #include <bpf_helpers.h>
 #include <bpf_tracing.h>
 
-#if defined(bpf_target_x86)
-#define PT_REGS_PARM6(ctx)  ((ctx)->r9)
-#elif defined(bpf_target_arm64)
-#define PT_REGS_PARM6(x) (((PT_REGS_ARM64 *)(x))->regs[5])
-#endif
 
+#define PT_REGS_PARM6(ctx)  ((ctx)->r9)
 #define MAX_PERCPU_BUFSIZE  (1 << 15)     // This value is actually set by the kernel as an upper bound
 #define MAX_STRING_SIZE     4096          // Choosing this value to be the same as PATH_MAX
 #define MAX_BYTES_ARR_SIZE  4096          // Max size of bytes array, arbitrarily chosen
@@ -98,7 +83,6 @@
 
 #define TAG_NONE           0UL
 
-#if defined(bpf_target_x86)
 #define SYS_OPEN              2
 #define SYS_MMAP              9
 #define SYS_MPROTECT          10
@@ -111,20 +95,7 @@
 #define SYS_EXIT_GROUP        231
 #define SYS_OPENAT            257
 #define SYS_EXECVEAT          322
-#elif defined(bpf_target_arm64)
-#define SYS_OPEN              1000 // undefined in arm64
-#define SYS_MMAP              222
-#define SYS_MPROTECT          226
-#define SYS_RT_SIGRETURN      139
-#define SYS_CLONE             220
-#define SYS_FORK              1000 // undefined in arm64
-#define SYS_VFORK             1000 // undefined in arm64
-#define SYS_EXECVE            221
-#define SYS_EXIT              93
-#define SYS_EXIT_GROUP        94
-#define SYS_OPENAT            56
-#define SYS_EXECVEAT          281
-#endif
+
 
 #define RAW_SYS_ENTER         1000
 #define RAW_SYS_EXIT          1001
@@ -223,9 +194,9 @@ struct bpf_map_def SEC("maps") _name = { \
 #endif
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 18, 0)
-#error Minimal required kernel version is 4.18
-#endif
+//#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 18, 0)
+//#error Minimal required kernel version is 4.18
+//#endif
 
 /*=============================== INTERNAL STRUCTS ===========================*/
 

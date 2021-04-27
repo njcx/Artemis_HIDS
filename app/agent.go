@@ -8,6 +8,7 @@ import (
 	"net"
 	"peppa_hids/collect"
 	"peppa_hids/monitor"
+	"peppa_hids/utils"
 	"peppa_hids/utils/kafka"
 	log2 "peppa_hids/utils/log"
 	"strings"
@@ -30,6 +31,7 @@ type Agent struct {
 	Mutex   *sync.Mutex
 	ctx     context.Context
 	Kafka   *kafka.Producer
+	AesKey  []byte
 }
 
 func (a *Agent) init() {
@@ -45,8 +47,11 @@ func (a *Agent) init() {
 
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:   etcD,
+		Username: "test",
+		Password: "123456",
 		DialTimeout: 5 * time.Second,
 	})
+
 	if err != nil {
 		a.log("connect failed, err:", err)
 		return
@@ -65,6 +70,12 @@ func (a *Agent) init() {
 		return
 	}
 
+	aeskey, err := cli.Get(ctx, "/hids/kafka/aeskey")
+	if err != nil {
+		a.log("get aes_key failed, err:", err)
+		return
+	}
+
 	ev := resp.Kvs[0]
 	kafkaHost := string(ev.Value)
 
@@ -73,6 +84,7 @@ func (a *Agent) init() {
 
 	a.Kafka = kafka.NewKafkaProducer(kafkaHost, kafkaTopic)
 	a.Mutex = new(sync.Mutex)
+	a.AesKey = []byte(aeskey)
 
 	_, err = cli.Put(ctx, "/hids/allhost/"+collect.ServerInfo.Hostname+"--"+collect.LocalIP,
 		time.Now().Format("2006-01-02 15:04:05"))
@@ -102,6 +114,7 @@ func (a *Agent) init() {
 	}(cli)
 
 }
+
 
 func (a *Agent) Run() {
 	a.init()
@@ -179,7 +192,14 @@ func (a *Agent) put() {
 	if err != nil {
 		a.log("Json marshal error:", err.Error())
 	}
-	err = a.Kafka.AddMessage(string(s))
+
+	aesByte, err:= utils.AesCtrEncrypt(s,a.AesKey)
+
+	if err != nil {
+		a.log("Aes encrypt error:", err.Error())
+	}
+
+	err = a.Kafka.AddMessage(string(aesByte))
 	if err != nil {
 		a.log("PutInfo error:", err.Error())
 	}
