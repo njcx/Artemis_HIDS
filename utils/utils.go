@@ -1,3 +1,7 @@
+/**
+ * @Author: nJcx86
+ */
+
 package utils
 
 import (
@@ -19,7 +23,6 @@ func AesCtrEncrypt(plainText, key []byte) ([]byte, error) {
 
 	return dst, nil
 }
-
 
 func AesCtrDecrypt(encryptData, key []byte) ([]byte, error) {
 	return AesCtrEncrypt(encryptData, key)

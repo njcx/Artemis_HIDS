@@ -1,3 +1,7 @@
+/**
+ * @Author: nJcx86
+ */
+
 package log
 
 import (
