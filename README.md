@@ -96,5 +96,5 @@ kafka 配置
 ```
 
 
-kafka 查看工具和kafka写es工具见tools
+kafka 查看工具和kafka写es工具见tools,包含aes解密步骤
 

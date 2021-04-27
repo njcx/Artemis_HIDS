@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	ESIndex = "nids"
+	ESIndex = "hids"
 )
 
 type UnsupportedVersion struct{}

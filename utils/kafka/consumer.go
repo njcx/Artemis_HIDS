@@ -5,19 +5,16 @@ import (
 	"log"
 	"strings"
 
-	kafka "github.com/segmentio/kafka-go"
 	"fmt"
+	kafka "github.com/segmentio/kafka-go"
 )
 
 type KafkaReader struct {
-
-	address  string    //"127.0.0.1:9092,127.0.0.1:9093,127.0.0.1:9094"
-	topic    string
-	message    chan kafka.Message
-	reader *kafka.Reader
-
+	address string //"127.0.0.1:9092,127.0.0.1:9093,127.0.0.1:9094"
+	topic   string
+	message chan kafka.Message
+	reader  *kafka.Reader
 }
-
 
 func getKafkaReader(kafkaURL, topic, groupID string) *kafka.Reader {
 	brokers := strings.Split(kafkaURL, ",")
@@ -40,10 +37,9 @@ func NewKakfaReader(kafkaURL, topic, groupID string) *KafkaReader {
 
 }
 
-func (k *KafkaReader) lose()  {
+func (k *KafkaReader) lose() {
 	k.reader.Close()
 }
-
 
 func (k *KafkaReader) runPoller() {
 
