@@ -47,7 +47,7 @@ func (a *Agent) init() {
 
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:   etcD,
-		Username:    "nids",
+		Username:    "hids",
 		Password:    "123456",
 		DialTimeout: 5 * time.Second,
 	})
@@ -76,15 +76,9 @@ func (a *Agent) init() {
 		return
 	}
 
-	ev := resp.Kvs[0]
-	kafkaHost := string(ev.Value)
-
-	ev1 := resp1.Kvs[0]
-	kafkaTopic := string(ev1.Value)
-
-	a.Kafka = kafka.NewKafkaProducer(kafkaHost, kafkaTopic)
+	a.Kafka = kafka.NewKafkaProducer(string(resp.Kvs[0].Value), string(resp1.Kvs[0].Value))
 	a.Mutex = new(sync.Mutex)
-	a.AesKey = []byte(aesKey)
+	a.AesKey = aesKey.Kvs[0].Value
 
 	_, err = cli.Put(ctx, "/hids/all_host/"+collect.ServerInfo.Hostname+"--"+collect.LocalIP,
 		time.Now().Format("2006-01-02 15:04:05"))
