@@ -64,3 +64,24 @@ export PATH=$PATH:/opt/rh/devtoolset-8/root/bin
 ```
 
 
+
+
+etcd v3 配置
+
+```go
+
+# etcdctl  role add root    
+# etcdctl  user add root      
+# etcdctl  user grant-role root root   
+# etcdctl  auth enable  
+
+# etcdctl  --user=root:passwd  role add HidsConf
+# etcdctl  --user=root:passwd  role grant-permission --prefix=true HidsConf readwrite /hids
+# etcdctl  --user=root:passwd  user add hids
+# etcdctl  --user=root:passwd  user grant-role hids HidsConf
+
+# etcdctl --user=hids:123456   put  /hids/kafka_conf/kafka_host   172.21.129.2:9092    [kafka对应host,逗号分隔]
+# etcdctl --user=hids:123456   put  /hids/kafka_conf/kafka_topic  hids_agent           [kafka对应topic]
+# etcdctl --user=hids:123456   put  /hids/kafka_conf/aes_key      BGfKOzWNsACBQiOC     [16位aes加密key]
+
+```

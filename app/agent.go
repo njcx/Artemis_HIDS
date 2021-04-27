@@ -58,19 +58,19 @@ func (a *Agent) init() {
 	}
 
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	resp, err := cli.Get(ctx, "/hids/kafka/host")
+	resp, err := cli.Get(ctx, "/hids/kafka_conf/kafka_host")
 	if err != nil {
 		a.log("get kafka_host failed, err:", err)
 		return
 	}
 
-	resp1, err := cli.Get(ctx, "/hids/kafka/topic")
+	resp1, err := cli.Get(ctx, "/hids/kafka_conf/kafka_topic")
 	if err != nil {
 		a.log("get kafka_topic failed, err:", err)
 		return
 	}
 
-	aeskey, err := cli.Get(ctx, "/hids/kafka/aeskey")
+	aesKey, err := cli.Get(ctx, "/hids/kafka_conf/aes_key")
 	if err != nil {
 		a.log("get aes_key failed, err:", err)
 		return
@@ -84,13 +84,13 @@ func (a *Agent) init() {
 
 	a.Kafka = kafka.NewKafkaProducer(kafkaHost, kafkaTopic)
 	a.Mutex = new(sync.Mutex)
-	a.AesKey = []byte(aeskey)
+	a.AesKey = []byte(aesKey)
 
-	_, err = cli.Put(ctx, "/hids/allhost/"+collect.ServerInfo.Hostname+"--"+collect.LocalIP,
+	_, err = cli.Put(ctx, "/hids/all_host/"+collect.ServerInfo.Hostname+"--"+collect.LocalIP,
 		time.Now().Format("2006-01-02 15:04:05"))
 
 	if err != nil {
-		a.log("etcd client leasegrant failed, err:", err)
+		a.log("etcd client lease grant failed, err:", err)
 		return
 	}
 
@@ -99,13 +99,13 @@ func (a *Agent) init() {
 		for {
 			resp, err := cli.Grant(context.TODO(), 60)
 			if err != nil {
-				a.log("etcd client leasegrant failed, err:", err)
+				a.log("etcd client lease grant failed, err:", err)
 				return
 			}
-			_, err = cli.Put(context.TODO(), "/hids/alivehost/"+collect.ServerInfo.Hostname+"--"+collect.LocalIP,
+			_, err = cli.Put(context.TODO(), "/hids/alive_host/"+collect.ServerInfo.Hostname+"--"+collect.LocalIP,
 				time.Now().Format("2006-01-02 15:04:05"), clientv3.WithLease(resp.ID))
 			if err != nil {
-				a.log("etcd client leaseput failed, err:", err)
+				a.log("etcd client lease put failed, err:", err)
 				return
 			}
 			time.Sleep(10 * time.Second)
