@@ -1,7 +1,7 @@
 package main
 
 import (
-	"peppa_hids/app"
+	"artemis_hids/app"
 )
 
 func main() {

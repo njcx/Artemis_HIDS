@@ -1,2 +1,4 @@
-/usr/local/peppac/p-master stop
-/usr/local/peppac/p-master remove
+#!/bin/sh
+
+/usr/local/artemis/artemis-master stop
+/usr/local/artemis/artemis-master remove

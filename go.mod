@@ -1,4 +1,4 @@
-module peppa_hids
+module artemis_hids
 
 go 1.14
 

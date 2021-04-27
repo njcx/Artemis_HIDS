@@ -17,15 +17,15 @@ int  get_id(char * filename)
 */
 import "C"
 import (
+	common "artemis_hids/collect"
+	log2 "artemis_hids/utils/log"
 	"errors"
 	"fmt"
+	"github.com/fsnotify/fsnotify"
 	"io/ioutil"
 	"log"
 	"os"
 	"strings"
-	common "peppa_hids/collect"
-	"github.com/fsnotify/fsnotify"
-	log2 "peppa_hids/utils/log"
 )
 
 func getFileUser(path string) (string, error) {

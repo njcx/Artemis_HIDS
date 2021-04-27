@@ -15,13 +15,13 @@ import (
 )
 
 const (
-	name            = "p_master"
-	description     = "peppa hids service"
+	name            = "artemis"
+	description     = "artemis hids service"
 	procsFile       = "cgroup.procs"
 	memoryLimitFile = "memory.limit_in_bytes"
 	swapLimitFile   = "memory.swappiness"
 	cpuLimitFile    = "cpu.cfs_quota_us"
-	Name            = "Pagent"
+	Name            = "artemis"
 	memoLimit       = 50 // 50M
 	mcgroupRoot     = "/sys/fs/cgroup/memory/" + Name
 	cpuLimit        = 5 //  5%
@@ -36,7 +36,7 @@ type Service struct {
 
 func (service *Service) Manage() (string, error) {
 
-	usage := "Usage: ./p-master  install | remove | start | stop | status"
+	usage := "Usage: ./artemis-master  install | remove | start | stop | status"
 
 	if len(os.Args) > 1 {
 		command := os.Args[1]
@@ -84,20 +84,20 @@ func (service *Service) Manage() (string, error) {
 		}
 	}
 
-	go startCmd("/usr/local/peppac/p-agent")
+	go startCmd("/usr/local/artemis/artemis-agent")
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, os.Kill, syscall.SIGTERM)
 
 	for {
 		select {
 		case killSignal := <-interrupt:
-			errLog.Println("P-master got signal:", killSignal)
+			errLog.Println("artemis-master got signal:", killSignal)
 			if killSignal == os.Interrupt {
-				err := "P-master was interruped by system signal"
+				err := "artemis-master was interruped by system signal"
 				errLog.Println(err)
 				return err, nil
 			}
-			err := "P-master was killed"
+			err := "artemis-master was killed"
 			return err, nil
 		}
 	}
@@ -105,7 +105,7 @@ func (service *Service) Manage() (string, error) {
 }
 
 func init() {
-	errFile, err := os.OpenFile("/var/log/p-master.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	errFile, err := os.OpenFile("/var/log/artemis-master.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatalln("open log file failed, err:", err)
 	}
@@ -188,12 +188,12 @@ func startCmd(command string) {
 		status := <-restart
 		switch status.Signal {
 		case os.Kill:
-			errLog.Println("p-agent is killed by system")
+			errLog.Println("artemis-agent is killed by system")
 		default:
-			errLog.Println("p-agent exit with code:", status.Code)
+			errLog.Println("artemis-agent exit with code:", status.Code)
 			return
 		}
-		errLog.Println("restart p-agent..")
+		errLog.Println("restart artemis-agent..")
 		go runner()
 	}
 }

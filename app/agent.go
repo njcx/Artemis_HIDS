@@ -1,16 +1,16 @@
 package app
 
 import (
+	"artemis_hids/collect"
+	"artemis_hids/monitor"
+	"artemis_hids/utils"
+	"artemis_hids/utils/kafka"
+	log2 "artemis_hids/utils/log"
 	"context"
 	"fmt"
 	"github.com/json-iterator/go"
 	"go.etcd.io/etcd/client/v3"
 	"net"
-	"peppa_hids/collect"
-	"peppa_hids/monitor"
-	"peppa_hids/utils"
-	"peppa_hids/utils/kafka"
-	log2 "peppa_hids/utils/log"
 	"strings"
 	"sync"
 	"time"
@@ -47,8 +47,8 @@ func (a *Agent) init() {
 
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:   etcD,
-		Username: "test",
-		Password: "123456",
+		Username:    "nids",
+		Password:    "123456",
 		DialTimeout: 5 * time.Second,
 	})
 
@@ -114,7 +114,6 @@ func (a *Agent) init() {
 	}(cli)
 
 }
-
 
 func (a *Agent) Run() {
 	a.init()
@@ -193,7 +192,7 @@ func (a *Agent) put() {
 		a.log("Json marshal error:", err.Error())
 	}
 
-	aesByte, err:= utils.AesCtrEncrypt(s,a.AesKey)
+	aesByte, err := utils.AesCtrEncrypt(s, a.AesKey)
 
 	if err != nil {
 		a.log("Aes encrypt error:", err.Error())

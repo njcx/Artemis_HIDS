@@ -1,6 +1,6 @@
-go build p-agent.go
-go build p-master.go
-upx -9 p-agent
-upx -9 p-master
+go build artemis-agent.go
+go build artemis-master.go
+upx -9 artemis-agent
+upx -9 artemis-master
 rm -rf /var/www/html/*
-cp p-master p-agent sh/*  /var/www/html/
+cp artemis-master artemis-agent sh/*  /var/www/html/

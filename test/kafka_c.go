@@ -1,8 +1,8 @@
 package main
 
 import (
+	"artemis_hids/utils/kafka"
 	"fmt"
-	"peppa_hids/utils/kafka"
 )
 
 func main() {

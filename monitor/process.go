@@ -84,12 +84,12 @@ int CapturePrecess()
 */
 import "C"
 import (
+	common "artemis_hids/collect"
 	"log"
 	"net"
 	"os"
 	"strconv"
 	"strings"
-	common "peppa_hids/collect"
 )
 
 // StartProcessMonitor 开始进程监控

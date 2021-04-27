@@ -1,11 +1,11 @@
 package yara
 
 import (
+	"artemis_hids/utils/log"
 	"github.com/Velocidex/go-yara"
 	"os"
 	"path"
 	"path/filepath"
-	"peppa_hids/utils/log"
 	"strings"
 )
 

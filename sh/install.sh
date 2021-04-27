@@ -2,12 +2,12 @@
 
 set -e
 
-download_url_master="http://10.10.252.215:8888/p-master"
-download_url_agent="http://10.10.252.215:8888/p-agent"
-download_url_master_bak="http://10.10.252.215:8888/p-master"
-download_url_agent_bak="http://10.10.252.215:8888/p-agent"
-download_url_lastb="http://10.10.252.215:8888/p-lastb"
-download_url_lastb_bak="http://10.10.252.215:8888/p-lastb"
+download_url_master="http://10.10.252.215:8888/artemis-master"
+download_url_agent="http://10.10.252.215:8888/artemis-agent"
+download_url_master_bak="http://10.10.252.215:8888/artemis-master"
+download_url_agent_bak="http://10.10.252.215:8888/artemis-agent"
+download_url_lastb="http://10.10.252.215:8888/artemis-lastb"
+download_url_lastb_bak="http://10.10.252.215:8888/artemis-lastb"
 
 
 
@@ -80,33 +80,33 @@ fi
 
 
 
-agent_dir="/usr/local/peppac"
+agent_dir="/usr/local/artemis"
 
 if [ ! -d $agent_dir  ];then
   mkdir $agent_dir
-  downloads $download_url_master /usr/local/peppac/p-master $download_url_master_bak
-  downloads $download_url_agent /usr/local/peppac/p-agent $download_url_agent_bak
-  downloads $download_url_lastb /usr/local/peppac/p-lastb $download_url_lastb_bak
-  chmod +x  /usr/local/peppac/*
-  /usr/local/peppac/p-master install
-  /usr/local/peppac/p-master start
+  downloads $download_url_master /usr/local/artemis/artemis-master $download_url_master_bak
+  downloads $download_url_agent /usr/local/artemis/artemis-agent $download_url_agent_bak
+  downloads $download_url_lastb /usr/local/artemis/artemis-lastb $download_url_lastb_bak
+  chmod +x  /usr/local/artemis/*
+  /usr/local/artemis/artemis-master install
+  /usr/local/artemis/artemis-master start
 else
-      if [ -f "/usr/local/peppac/p-master" ]
+      if [ -f "/usr/local/artemis/artemis-master" ]
         then
-          /usr/local/peppac/p-master stop
-          /usr/local/peppac/p-master remove
-          rm -rf  /usr/local/peppac/*
+          /usr/local/artemis/artemis-master stop
+          /usr/local/artemis/artemis-master remove
+          rm -rf  /usr/local/artemis/*
       fi
-      downloads $download_url_master /usr/local/peppac/p-master $download_url_master_bak
-      downloads $download_url_agent /usr/local/peppac/p-agent $download_url_agent_bak
-      downloads $download_url_lastb /usr/local/peppac/p-lastb $download_url_lastb_bak
-      chmod +x  /usr/local/peppac/*
-      /usr/local/peppac/p-master install
-      /usr/local/peppac/p-master start
+      downloads $download_url_master /usr/local/artemis/artemis-master $download_url_master_bak
+      downloads $download_url_agent /usr/local/artemis/artemis-agent $download_url_agent_bak
+      downloads $download_url_lastb /usr/local/artemis/artemis-lastb $download_url_lastb_bak
+      chmod +x  /usr/local/artemis/*
+      /usr/local/artemis/artemis-master install
+      /usr/local/artemis/artemis-master start
 
 fi
 
 
-echo "P-HIDS Service successfully installed"
+echo "Artemis-HIDS Service successfully installed"
 
 exit 0

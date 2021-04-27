@@ -1,6 +1,6 @@
 #!/bin/sh
 
-/usr/local/peppac/p-master stop
-/usr/local/peppac/p-master remove
-rm -rf  /usr/local/peppac/p-master
-rm -rf  /usr/local/peppac/p-agent
+/usr/local/artemis/artemis-master stop
+/usr/local/artemis/artemis-master remove
+rm -rf  /usr/local/artemis/artemis-master
+rm -rf  /usr/local/artemis/artemis-agent

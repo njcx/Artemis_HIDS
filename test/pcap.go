@@ -1,9 +1,8 @@
 package main
 
 import (
+	"artemis_hids/utils/pcap"
 	"fmt"
-	"peppa_hids/utils/pcap"
-
 )
 
 func main() {

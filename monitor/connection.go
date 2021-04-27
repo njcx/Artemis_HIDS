@@ -193,11 +193,11 @@ static char * filter(char *host, int port) {
 */
 import "C"
 import (
+	common "artemis_hids/collect"
+	log2 "artemis_hids/utils/log"
+	"artemis_hids/utils/pcap"
 	"fmt"
 	"strings"
-	common "peppa_hids/collect"
-	"peppa_hids/utils/pcap"
-	log2 "peppa_hids/utils/log"
 )
 
 // StartNetSniff 开始网络行为监控
