@@ -123,7 +123,6 @@ func main() {
 	if err != nil {
 		errLog.Fatalln("Error: ", err)
 	}
-	fmt.Println(status)
 }
 
 func PathExists(path string) (bool, error) {
