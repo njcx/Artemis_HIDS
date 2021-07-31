@@ -19,7 +19,7 @@ func main() {
 		if err != nil {
 			fmt.Println(err)
 		}
-		fmt.Printf("%#v\n", data)
+		fmt.Println(data[0].EventData.Pid())
 	}
 
 }
