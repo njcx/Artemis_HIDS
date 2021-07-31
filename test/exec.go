@@ -17,7 +17,7 @@ func main() {
 		data, err := cn.ReadPCN()
 
 		if err != nil {
-			log.Errorf("Read fail: %s", err)
+			fmt.Println(err)
 		}
 		fmt.Printf("%#v\n", data)
 	}

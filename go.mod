@@ -20,5 +20,6 @@ require (
 	github.com/sevlyar/go-daemon v0.1.5 // indirect
 	github.com/takama/daemon v1.0.0 // indirect
 	go.uber.org/zap v1.16.0 // indirect
+	golang.org/x/net v0.0.0-20210525063256-abc453219eb5 // indirect
 	gopkg.in/olivere/elastic.v6 v6.2.35 // indirect
 )
