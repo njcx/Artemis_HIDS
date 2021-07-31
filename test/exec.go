@@ -2,30 +2,24 @@ package main
 
 import (
 	"artemis_hids/utils/gonlconnector"
+	"fmt"
 	"log"
-	"os"
 )
 
 func main() {
 
-	watcher, err := gonlconnector.NewWatcher()
-	if err != nil {
-		log.Fatal(err)
-	}
+	cn, err := gonlconnector.DialPCNWithEvents([]gonlconnector.EventType{gonlconnector.ProcEventExec})
 
-	go func() {
-		for {
-			select {
-			case ev := <-watcher.Exec:
-				log.Println("exec event:", ev)
-			}
+	if err != nil {
+		log.Fatalf("%s", err)
+	}
+	for {
+		data, err := cn.ReadPCN()
+
+		if err != nil {
+			log.Errorf("Read fail: %s", err)
 		}
-	}()
-
-	err = watcher.Watch(os.Getpid(), gonlconnector.PROC_EVENT_ALL)
-	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("%#v\n", data)
 	}
-	watcher.Close()
 
 }
