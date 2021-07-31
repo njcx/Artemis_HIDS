@@ -18,8 +18,6 @@ func main() {
 			select {
 			case ev := <-watcher.Exec:
 				log.Println("exec event:", ev)
-			case err := <-watcher.Error:
-				log.Println("error:", err)
 			}
 		}
 	}()

@@ -24,7 +24,6 @@ type Watcher struct {
 	watches      map[int]*watch // Map of watched process ids
 	watchesMutex *sync.Mutex
 
-	Error chan error          // Errors are sent on this channel
 	Exec  chan *ProcEventExec // Exec events are sent on this channel
 	done  chan bool           // Used to stop the readEvents() goroutine
 
@@ -44,7 +43,6 @@ func NewWatcher() (*Watcher, error) {
 		watches:      make(map[int]*watch),
 		watchesMutex: &sync.Mutex{},
 		Exec:         make(chan *ProcEventExec),
-		Error:        make(chan error),
 		done:         make(chan bool, 1),
 		closedMutex:  &sync.Mutex{},
 	}
@@ -56,7 +54,6 @@ func NewWatcher() (*Watcher, error) {
 // Close event channels when done message is received
 func (w *Watcher) finish() {
 	close(w.Exec)
-	close(w.Error)
 }
 
 // Closes the OS specific event listener,
