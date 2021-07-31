@@ -5,9 +5,9 @@ import (
 	"strings"
 )
 
-// GetCrontab 获取计划任务
+
 func GetCrontab() (resultData []map[string]string) {
-	//系统计划任务
+
 	dat, err := ioutil.ReadFile("/etc/crontab")
 	if err != nil {
 		return resultData
@@ -23,7 +23,6 @@ func GetCrontab() (resultData []map[string]string) {
 		resultData = append(resultData, m)
 	}
 
-	//用户计划任务
 	dir, err := ioutil.ReadDir("/var/spool/cron/")
 	if err != nil {
 		return resultData

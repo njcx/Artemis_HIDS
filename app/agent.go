@@ -132,9 +132,9 @@ func (a *Agent) setLocalIP(ip string) {
 
 func (a *Agent) monitor() {
 	resultChan := make(chan map[string]string, 16)
-	go monitor.StartNetSniff(resultChan)
-	//go monitor.StartProcessMonitor(resultChan)
-	go monitor.StartDNSNetSniff(resultChan)
+	//go monitor.StartNetSniff(resultChan)
+	go monitor.StartProcessMonitor(resultChan)
+	//go monitor.StartDNSNetSniff(resultChan)
 	go monitor.StartFileMonitor(resultChan)
 	go func(result chan map[string]string) {
 		var data map[string]string
@@ -156,11 +156,6 @@ func (a *Agent) monitor() {
 func (a *Agent) getInfo() {
 	historyCache := make(map[string][]map[string]string)
 	for {
-		//if len(collect.Config.MonitorPath) == 0 {
-		//	time.Sleep(time.Second)
-		//	a.log("Failed to get the configuration information")
-		//	continue
-		//}
 		allData := collect.GetAllInfo()
 		for k, v := range allData {
 			if len(v) == 0 || a.mapComparison(v, historyCache[k]) {

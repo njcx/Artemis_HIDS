@@ -11,6 +11,7 @@ require (
 	github.com/gxlog/gxlog v0.7.0 // indirect
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
+	github.com/mdlayher/netlink v1.4.1 // indirect
 	github.com/natefinch/lumberjack v2.0.0+incompatible // indirect
 	github.com/olivere/elastic v6.2.35+incompatible // indirect
 	github.com/olivere/elastic/v7 v7.0.24 // indirect
