@@ -1,0 +1,43 @@
+server:
+  host: "0.0.0.0"
+  port: 50051
+  max_concurrent_streams: 50000
+  max_receive_message_size: 16777216
+  read_buffer_size: 65536
+  write_buffer_size: 65536
+  tls:
+    enabled: true
+    cert_file: "certs/server-cert.pem"
+    key_file: "certs/server-key.pem"
+    ca_file: "certs/ca-cert.pem"
+    client_auth: false
+
+kafka:
+  brokers:
+    - "kafka:9092"
+  topic: "hids_events"
+  compression: "lz4"
+  batch_size: 1000
+  batch_timeout: "10ms"
+  max_retries: 2
+  buffer_memory: 536870912
+  max_in_flight: 100
+  async: true
+  compression_level: 1
+  sasl:
+    enabled: true
+    mechanism: "SCRAM-SHA-256"
+    username: "${KAFKA_SASL_USERNAME}"
+    password: "${KAFKA_SASL_PASS}"
+
+redis:
+  host: "redis"
+  port: 6379
+  password: "${REDIS_PASS}"
+
+logging:
+  level: "info"
+  file: "/var/log/artemis-hids/server.log"
+  max_size: 100
+  max_backups: 10
+  max_age: 30

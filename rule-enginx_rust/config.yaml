@@ -1,0 +1,87 @@
+# Kafka消费配置
+consumer:
+  brokers:
+    - "127.0.0.1:19092"
+  
+  # 多 Topic 配置方式（三选一）：
+  # 方式1：单个 topic（兼容旧配置）
+  # topic: "hids_alerts"
+  
+  # 方式2：通配符模式（推荐）- 自动订阅所有 worker topics
+  topic: "hids_events-*"
+  
+  # 方式3：显式指定多个 topics
+  # topics:
+  #   - "hids_events-file_monitor"
+  #   - "hids_events-process_monitor"
+  #   - "hids_events-network_monitor"
+  #   - "hids_events-security_log_monitor"
+  #   - "hids_events-system_info_monitor"
+  #   - "hids_events-heartbeat"
+  
+  group_id: "rule-engine-group"
+  min_bytes: 1      # 1byte
+  max_bytes: 10485760  # 10MB
+  
+  # 消费起始位置：
+  # - "latest" (默认): 只消费新消息，适合实时监控
+  # - "earliest": 从头开始消费所有消息，适合首次启动或需要重新处理历史数据
+  auto_offset_reset: "latest"
+  
+  # ======================================
+  # 高性能配置
+  # ======================================
+  
+  # 处理线程数（默认 8）
+  # 建议设置为 CPU 核心数的 1-2 倍，以充分利用多核 CPU
+  # 例如：8 核 CPU 可设置为 8-16
+  num_workers: 16
+  
+  # Channel 缓冲区大小（默认 10000）
+  # 用于消费者和处理器之间的消息缓冲
+  # 增大此值可以提高吞吐量，但会增加内存使用
+  channel_size: 50000
+  
+  # SASL认证配置（可选，为空则免密）
+  sasl:
+    enabled: false
+    mechanism: "PLAIN"  # PLAIN, SCRAM-SHA-256, SCRAM-SHA-512
+    username: ""
+    password: ""
+
+# 告警配置
+alert:
+  outputs:
+    # 标准输出
+    - type: stdout
+      enabled: true
+      config: {}
+    
+    # 文件输出
+    - type: file
+      enabled: true
+      config:
+        path: "./alerts.log"
+    
+    # Kafka输出
+    - type: kafka
+      enabled: true
+      config:
+        brokers:
+          - "127.0.0.1:19092"
+        topic: "hids_alerts"
+        # SASL认证配置（可选，为空则免密）
+        sasl:
+          enabled: false
+          mechanism: "PLAIN"  # PLAIN, SCRAM-SHA-256, SCRAM-SHA-512
+          username: ""
+          password: ""
+
+# 规则配置
+rules:
+  directory: "./rules"
+
+# 日志配置
+logging:
+  level: "info"
+  file: "./rule-engine.log"

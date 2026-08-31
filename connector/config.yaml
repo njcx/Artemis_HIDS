@@ -1,0 +1,112 @@
+# Artemis HIDS Connector 配置文件
+# 用于将 Kafka 数据同步到 OpenObserve 和 Redis
+
+# Kafka 消费配置
+kafka:
+  # Kafka 集群地址
+  brokers:
+    - "127.0.0.1:19092"
+  
+  # 消费组 ID（不同实例使用不同 group_id 可以实现多实例消费）
+  group_id: "artemis-connector-1"
+  
+  # 消费 Topic 配置（支持多个 topic）
+  topics:
+    # 文件监控事件 -> OpenObserve
+    - name: "hids_events-file_monitor"
+      index: "hids-file-monitor"  # OpenObserve 索引名称
+      is_heartbeat: false
+    
+    # 进程执行监控事件 -> OpenObserve
+    - name: "hids_events-exec_monitor"
+      index: "hids-exec-monitor"
+      is_heartbeat: false
+    
+    # 网络监控事件 -> OpenObserve
+    - name: "hids_events-network_monitor"
+      index: "hids-network-monitor"
+      is_heartbeat: false
+    
+    # 安全日志监控事件 -> OpenObserve
+    - name: "hids_events-security_log_monitor"
+      index: "hids-security-log"
+      is_heartbeat: false
+    
+    # 系统信息采集 -> OpenObserve
+    - name: "hids_events-system_monitor"
+      index: "hids-system-info"
+      is_heartbeat: false
+    
+    - name: "hids_events-container_monitor"
+      index: "hids-container-info"
+      is_heartbeat: false
+
+    - name: "hids_events-package_monitor"
+      index: "hids-package-info"
+      is_heartbeat: false
+
+    - name: "hids_events-process_monitor"
+      index: "hids-process-monitor"
+      is_heartbeat: false
+
+    - name: "hids_events-language_monitor"
+      index: "hids-language-monitor"
+      is_heartbeat: false
+    
+    - name: "hids_events-port_monitor"
+      index: "hids-port-monitor"
+      is_heartbeat: false
+    
+    - name: "hids_alerts"
+      index: "hids-alerts"  # 心跳也可以写入 OpenObserve（可选）
+      is_heartbeat: false  # 标记为心跳，会写入 Redis
+
+    # 心跳数据 -> Redis（用于 Agent 状态跟踪）
+    - name: "hids_events-heartbeat"
+      index: "hids-heartbeat"  # 心跳也可以写入 OpenObserve（可选）
+      is_heartbeat: true  # 标记为心跳，会写入 Redis
+  
+  # SASL 认证配置（可选）
+  sasl:
+    enabled: false
+    mechanism: "PLAIN"  # PLAIN, SCRAM-SHA-256, SCRAM-SHA-512
+    username: ""
+    password: ""
+
+# OpenObserve 配置
+openobserve:
+  # OpenObserve API 地址
+  url: "http://127.0.0.1:5080"
+  
+  # 组织名称（OpenObserve 中的 Organization）
+  org: "default"
+  
+  # 认证信息（Basic Auth）
+  username: "root@example.com"
+  password: "test-passwd"
+  # 批处理配置
+  batch_size: 100  # 每批次写入的记录数
+  batch_timeout: 5  # 批次超时时间（秒）
+  
+  # HTTP 客户端配置
+  timeout: 30  # 请求超时时间（秒）
+  max_retries: 3  # 最大重试次数
+
+# Redis 配置（用于存储 Agent 心跳和状态信息）
+redis:
+  # Redis 连接 URL（格式: redis://[:password@]host[:port][/db]）
+  url: "redis://:test-passwd@127.0.0.1:11379/9"
+  
+  # Key 前缀（Agent 状态存储前缀）
+  key_prefix: "hids:agent:"
+  
+  # 心跳数据 TTL（秒，超过此时间未更新则认为 Agent 离线）
+  ttl_secs: 300
+
+# 日志配置
+logging:
+  # 日志级别: trace, debug, info, warn, error
+  level: "info"
+  
+  # 日志输出格式: json, pretty
+  format: "pretty"

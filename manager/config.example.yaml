@@ -1,0 +1,15 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+redis:
+  host: "localhost"
+  port: 6379
+  password: ""
+
+database:
+  host: "localhost"
+  port: 27017
+  user: "root"
+  password: "your_password"
+  database: "artemis_hids"

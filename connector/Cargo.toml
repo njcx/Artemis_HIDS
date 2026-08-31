@@ -1,0 +1,45 @@
+[package]
+name = "artemis-connector"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# 异步运行时
+tokio = { version = "1.42", features = ["full"] }
+tokio-util = "0.7"
+
+# Kafka 客户端
+rdkafka = { version = "0.36", features = ["cmake-build", "ssl", "sasl"] }
+
+# HTTP 客户端（用于 OpenObserve）
+reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }
+
+# Redis 客户端
+redis = { version = "0.23", features = ["tokio-comp", "connection-manager"] }
+
+# JSON 序列化
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# YAML 配置解析
+serde_yaml = "0.9"
+
+# 错误处理
+anyhow = "1.0"
+thiserror = "1.0"
+
+# 日志
+log = "0.4"
+env_logger = "0.11"
+
+# Base64 编码
+base64 = "0.21"
+
+# 时间处理
+chrono = { version = "0.4", features = ["serde"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

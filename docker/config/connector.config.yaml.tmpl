@@ -1,0 +1,66 @@
+# Artemis HIDS Connector 配置文件 (Docker Compose)
+kafka:
+  brokers:
+    - "kafka:9092"
+  group_id: "artemis-connector-1"
+  topics:
+    - name: "hids_events-file_monitor"
+      index: "hids-file-monitor"
+      is_heartbeat: false
+    - name: "hids_events-exec_monitor"
+      index: "hids-exec-monitor"
+      is_heartbeat: false
+    - name: "hids_events-network_monitor"
+      index: "hids-network-monitor"
+      is_heartbeat: false
+    - name: "hids_events-security_log_monitor"
+      index: "hids-security-log"
+      is_heartbeat: false
+    - name: "hids_events-system_monitor"
+      index: "hids-system-info"
+      is_heartbeat: false
+    - name: "hids_events-container_monitor"
+      index: "hids-container-info"
+      is_heartbeat: false
+    - name: "hids_events-package_monitor"
+      index: "hids-package-info"
+      is_heartbeat: false
+    - name: "hids_events-process_monitor"
+      index: "hids-process-monitor"
+      is_heartbeat: false
+    - name: "hids_events-language_monitor"
+      index: "hids-language-monitor"
+      is_heartbeat: false
+    - name: "hids_events-port_monitor"
+      index: "hids-port-monitor"
+      is_heartbeat: false
+    - name: "hids_alerts"
+      index: "hids-alerts"
+      is_heartbeat: false
+    - name: "hids_events-heartbeat"
+      index: "hids-heartbeat"
+      is_heartbeat: true
+  sasl:
+    enabled: true
+    mechanism: "SCRAM-SHA-256"
+    username: "${KAFKA_SASL_USERNAME}"
+    password: "${KAFKA_SASL_PASS}"
+
+openobserve:
+  url: "http://openobserve:5080"
+  org: "default"
+  username: "${OPENOBSERVE_ROOT_EMAIL}"
+  password: "${OPENOBSERVE_ROOT_PASS}"
+  batch_size: 100
+  batch_timeout: 5
+  timeout: 30
+  max_retries: 3
+
+redis:
+  url: "redis://:${REDIS_PASS}@redis:6379/9"
+  key_prefix: "hids:agent:"
+  ttl_secs: 300
+
+logging:
+  level: "info"
+  format: "pretty"

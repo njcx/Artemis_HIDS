@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="42897592-fc13-4e1a-99d8-7b8a192d2378" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/encodings.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/agent.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/artemis-agent.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/artemis-master.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/build.sh" beforeDir="false" afterPath="$PROJECT_DIR$/build.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/collect/common.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/collect/computerinfo.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/collect/crontab.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/collect/init.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/collect/listen.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/collect/loginlog.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/collect/process.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/collect/user.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/collect/webpath.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/go.mod" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/go.sum" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/monitor/config.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/monitor/file.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/monitor/utils.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/sh/artemis-lastb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/sh/install.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/sh/start.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/sh/stop.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/sh/uninstall.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/test/dns1.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/test/etcd.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/test/exec.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/test/fd.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/test/index.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/test/kafka_c.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/test/kafka_p.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/test/pcap.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tools/kafka-consumer.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tools/kafka-es.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tools/utils/elastic6.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tools/utils/elastic7.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tools/utils/es.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tools/utils/kafka.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/gonlconnector/bpf.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/gonlconnector/connector.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/gonlconnector/proc.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/gonlconnector/procHdr.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/gonlconnector/time.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/kafka/consumer.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/kafka/producer.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/log/log.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/utils.go" beforeDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="GOROOT" url="file:///usr/local/go" />
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GoLibraries">
+    <option name="indexEntireGoPath" value="false" />
+  </component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="mye5l2iu" />
+  </component>
+  <component name="ProjectId" id="3GwO0h11B4QCrXgu28qbIA3yAGg" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="WebServerToolWindowFactoryState" value="false" />
+    <property name="go.import.settings.migrated" value="true" />
+    <property name="go.sdk.automatically.set" value="true" />
+    <property name="go.tried.to.enable.integration.vgo.integrator" value="true" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/.." />
+    <property name="node.js.detected.package.eslint" value="true" />
+    <property name="node.js.selected.package.eslint" value="(autodetect)" />
+    <property name="nodejs_package_manager_path" value="yarn" />
+  </component>
+  <component name="RunManager" selected="npm.serve">
+    <configuration name="run.sh" type="ShConfigurationType" temporary="true">
+      <option name="SCRIPT_TEXT" value="" />
+      <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
+      <option name="SCRIPT_PATH" value="$PROJECT_DIR$/mongo_syncer/run.sh" />
+      <option name="SCRIPT_OPTIONS" value="" />
+      <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
+      <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$/mongo_syncer" />
+      <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
+      <option name="INTERPRETER_PATH" value="/bin/zsh" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="EXECUTE_IN_TERMINAL" value="true" />
+      <option name="EXECUTE_SCRIPT_FILE" value="true" />
+      <envs />
+      <method v="2" />
+    </configuration>
+    <configuration name="start.sh" type="ShConfigurationType" temporary="true">
+      <option name="SCRIPT_TEXT" value="" />
+      <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
+      <option name="SCRIPT_PATH" value="$PROJECT_DIR$/manager/start.sh" />
+      <option name="SCRIPT_OPTIONS" value="" />
+      <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
+      <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$/manager" />
+      <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
+      <option name="INTERPRETER_PATH" value="/bin/zsh" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="EXECUTE_IN_TERMINAL" value="true" />
+      <option name="EXECUTE_SCRIPT_FILE" value="true" />
+      <envs />
+      <method v="2" />
+    </configuration>
+    <configuration name="serve" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
+      <package-json value="$PROJECT_DIR$/frontend/package.json" />
+      <command value="run" />
+      <scripts>
+        <script value="serve" />
+      </scripts>
+      <node-interpreter value="project" />
+      <envs />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Shell Script.run.sh" />
+        <item itemvalue="Shell Script.start.sh" />
+        <item itemvalue="npm.serve" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>

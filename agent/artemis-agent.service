@@ -1,0 +1,28 @@
+[Unit]
+Description=Artemis HIDS Agent
+Documentation=https://github.com/njcx/Artemis_HIDS
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+
+# 工作目录
+WorkingDirectory=/usr/local/artemis-agent
+
+# 启动命令
+ExecStart=/usr/local/artemis-agent/artemis_agent
+
+# 重启策略
+Restart=always
+RestartSec=10
+
+# 优雅停止
+TimeoutStopSec=30
+KillMode=mixed
+KillSignal=SIGTERM
+
+[Install]
+WantedBy=multi-user.target

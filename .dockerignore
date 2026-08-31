@@ -1,0 +1,12 @@
+**/target
+**/bin
+**/*.log
+.git
+frontend/node_modules
+frontend/dist
+agent/artemis_agent
+agent/workers/file
+agent/workers/network
+agent/workers/log
+agent/workers/exec
+agent/workers/system
