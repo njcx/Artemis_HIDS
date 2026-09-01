@@ -1,0 +1,15 @@
+# Kafka生产者配置
+kafka:
+  brokers:
+    - "127.0.0.1:19092"
+  topic: "hids_events"
+  # SASL认证配置（可选，为空则免密）
+  sasl:
+    enabled: false
+    mechanism: "PLAIN"  # PLAIN, SCRAM-SHA-256, SCRAM-SHA-512
+    username: ""
+    password: ""
+
+# 日志配置
+logging:
+  level: "info"

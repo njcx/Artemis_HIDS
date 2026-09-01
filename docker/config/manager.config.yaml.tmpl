@@ -1,0 +1,17 @@
+# Manager 配置文件 (Docker Compose)
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+redis:
+  addr: "redis:6379"
+  password: "${REDIS_PASS}"
+  db: 8
+  pool_size: 100
+
+database:
+  host: "mongodb"
+  port: 27017
+  user: "${MONGO_ROOT_USERNAME}"
+  password: "${MONGO_ROOT_PASS}"
+  database: "artemis_hids"

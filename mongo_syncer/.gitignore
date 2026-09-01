@@ -1,0 +1,30 @@
+# 二进制文件
+mongo_syncer
+*.exe
+*.dll
+*.so
+*.dylib
+
+# 测试文件
+*.test
+*.out
+
+# 依赖
+vendor/
+
+# 配置文件（保留示例）
+config.yaml
+
+# 日志文件
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,24 @@
+# Manager 配置文件
+server:
+  host: "0.0.0.0"
+  port: 8080
+  
+redis:
+  addr: "127.0.0.1:11379"
+  password: "test-pwd"
+  db: 8
+  pool_size: 100
+
+# database:
+#   host: "127.0.0.1"
+#   port: 3309
+#   user: "root"
+#   password: "test-pwd"
+#   database: "artemis_hids"
+
+database:
+  host: "127.0.0.1"
+  port: 47017
+  user: "mongoadmin"
+  password: "test-pwd"
+  database: "artemis_hids"

@@ -1,0 +1,430 @@
+package server
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
+	"gorm.io/gorm"
+)
+
+// APIServer API 服务器
+type APIServer struct {
+	redisClient *redis.Client
+	db          *gorm.DB
+	router      *gin.Engine
+}
+
+// NewAPIServer 创建 API 服务器
+func NewAPIServer(redisClient *redis.Client, db *gorm.DB) *APIServer {
+	gin.SetMode(gin.ReleaseMode)
+	router := gin.Default()
+
+	server := &APIServer{
+		redisClient: redisClient,
+		db:          db,
+		router:      router,
+	}
+
+	server.setupAuthRoutes()   // 认证路由
+	server.setupRoutes()       // 主要路由
+	server.setupConfigRoutes() // 配置管理路由
+	return server
+}
+
+// setupRoutes 设置路由
+func (s *APIServer) setupRoutes() {
+	// 静态文件服务 - 前端页面
+	s.router.Static("/web", "./web")
+	s.router.GET("/", func(c *gin.Context) {
+		c.Redirect(http.StatusMovedPermanently, "/web/login.html")
+	})
+
+	// 健康检查（无需认证）
+	s.router.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
+	// CORS 中间件
+	s.router.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
+	})
+
+	// API 路由组（需要认证）
+	api := s.router.Group("/api/v1")
+	api.Use(AuthMiddleware(s.db)) // 所有 API 需要认证
+	{
+		// 统计信息
+		api.GET("/stats", RequirePermission(PermViewDashboard), s.getStats)
+		api.GET("/stats/realtime", RequirePermission(PermViewDashboard), s.getRealtimeStats)
+
+		// Agent 管理
+		api.GET("/agents", RequirePermission(PermViewAgents), s.listAgents)
+		api.GET("/agents/:id", RequirePermission(PermViewAgents), s.getAgent)
+		api.GET("/agents/:id/status", RequirePermission(PermViewAgents), s.getAgentStatus)
+		api.GET("/agents/online", RequirePermission(PermViewAgents), s.getOnlineAgents)
+
+		// 事件查询
+		api.GET("/events", RequirePermission(PermViewEvents), s.searchEvents)
+		api.GET("/events/stats", RequirePermission(PermViewEvents), s.getEventStats)
+
+		// 告警查询
+		api.GET("/alerts", RequirePermission(PermViewAlerts), s.searchAlerts)
+		api.PUT("/alerts/:id/status", RequirePermission(PermViewAlerts), s.updateAlertStatus)
+	}
+}
+
+// Start 启动服务器
+func (s *APIServer) Start(addr string) error {
+	return s.router.Run(addr)
+}
+
+// getStats 获取统计信息
+func (s *APIServer) getStats(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	// 从 Redis 获取统计数据
+	pipe := s.redisClient.Pipeline()
+	onlineCmd := pipe.Get(ctx, "stats:agents:online")
+	totalCmd := pipe.Get(ctx, "stats:agents:total")
+	_, err := pipe.Exec(ctx)
+
+	stats := gin.H{
+		"agents": gin.H{
+			"online": 0,
+			"total":  0,
+		},
+		"timestamp": time.Now().Unix(),
+	}
+
+	if err == nil {
+		online, _ := onlineCmd.Int64()
+		total, _ := totalCmd.Int64()
+		stats["agents"] = gin.H{
+			"online": online,
+			"total":  total,
+		}
+	}
+
+	c.JSON(http.StatusOK, stats)
+}
+
+// getRealtimeStats 获取实时统计（WebSocket）
+func (s *APIServer) getRealtimeStats(c *gin.Context) {
+	// TODO: 实现 WebSocket 推送
+	c.JSON(http.StatusOK, gin.H{"message": "WebSocket endpoint"})
+}
+
+// listAgents 列出 agents
+func (s *APIServer) listAgents(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	// 从 Sorted Set 获取所有 agent
+	agents, err := s.redisClient.ZRevRange(ctx, "agents:online", 0, -1).Result()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 获取每个 agent 的详细信息
+	results := make([]gin.H, 0, len(agents))
+	for _, agentID := range agents {
+		status, err := s.getAgentStatusByID(ctx, agentID)
+		if err != nil {
+			continue
+		}
+		results = append(results, status)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"total":  len(results),
+		"agents": results,
+	})
+}
+
+// getAgent 获取 agent 详情
+func (s *APIServer) getAgent(c *gin.Context) {
+	agentID := c.Param("id")
+	ctx := c.Request.Context()
+
+	status, err := s.getAgentStatusByID(ctx, agentID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "agent not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, status)
+}
+
+// getAgentStatus 获取 agent 状态
+func (s *APIServer) getAgentStatus(c *gin.Context) {
+	agentID := c.Param("id")
+	ctx := c.Request.Context()
+
+	status, err := s.getAgentStatusByID(ctx, agentID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "agent not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, status)
+}
+
+// getAgentStatusByID 从 Redis 获取 agent 状态
+func (s *APIServer) getAgentStatusByID(ctx context.Context, agentID string) (gin.H, error) {
+	key := fmt.Sprintf("agent:status:%s", agentID)
+	data, err := s.redisClient.HGetAll(ctx, key).Result()
+	if err != nil || len(data) == 0 {
+		return nil, fmt.Errorf("agent not found")
+	}
+
+	status := gin.H{
+		"agent_id": agentID,
+	}
+	for k, v := range data {
+		status[k] = v
+	}
+
+	// 判断是否在线（最近5分钟有心跳）
+	if lastHeartbeat, ok := data["last_heartbeat"]; ok {
+		timestamp, _ := strconv.ParseInt(lastHeartbeat, 10, 64)
+		online := time.Now().Unix()-timestamp < 300 // 5分钟
+		status["online"] = online
+	}
+
+	return status, nil
+}
+
+// getOnlineAgents 获取在线 agents
+func (s *APIServer) getOnlineAgents(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	// 获取最近5分钟有心跳的 agent
+	minScore := float64(time.Now().Add(-5 * time.Minute).Unix())
+	agents, err := s.redisClient.ZRangeByScoreWithScores(ctx, "agents:online", &redis.ZRangeBy{
+		Min: fmt.Sprintf("%f", minScore),
+		Max: "+inf",
+	}).Result()
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	results := make([]gin.H, 0, len(agents))
+	for _, z := range agents {
+		agentID := z.Member.(string)
+		status, err := s.getAgentStatusByID(ctx, agentID)
+		if err != nil {
+			continue
+		}
+		results = append(results, status)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"total":  len(results),
+		"agents": results,
+	})
+}
+
+// searchEvents 搜索事件
+func (s *APIServer) searchEvents(c *gin.Context) {
+	// 解析查询参数
+	agentID := c.Query("agent_id")
+	eventType := c.Query("event_type")
+	severity := c.Query("severity")
+	keyword := c.Query("keyword")
+
+	// 时间范围
+	startTime, _ := strconv.ParseInt(c.DefaultQuery("start_time", "0"), 10, 64)
+	endTime, _ := strconv.ParseInt(c.DefaultQuery("end_time", "0"), 10, 64)
+	if startTime == 0 {
+		startTime = time.Now().Add(-24 * time.Hour).UnixMilli()
+	}
+	if endTime == 0 {
+		endTime = time.Now().UnixMilli()
+	}
+
+	// 分页
+	size, _ := strconv.Atoi(c.DefaultQuery("size", "50"))
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	offset := (page - 1) * size
+
+	// 构建查询
+	query := s.db.Model(&Event{})
+	
+	if agentID != "" {
+		query = query.Where("agent_id = ?", agentID)
+	}
+	if eventType != "" {
+		query = query.Where("event_type = ?", eventType)
+	}
+	if severity != "" {
+		query = query.Where("severity = ?", severity)
+	}
+	if keyword != "" {
+		query = query.Where("title LIKE ? OR description LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
+	}
+	
+	query = query.Where("timestamp >= ? AND timestamp <= ?", startTime, endTime)
+
+	// 获取总数
+	var total int64
+	query.Count(&total)
+
+	// 查询数据
+	var events []Event
+	if err := query.Order("timestamp DESC").Limit(size).Offset(offset).Find(&events).Error; err != nil {
+	// 解析时间范围
+	hours := 24
+	if rangeStr := c.Query("range"); rangeStr != "" {
+		if h, err := strconv.Atoi(rangeStr); err == nil {
+			hours = h
+		}
+	}
+	
+	startTime := time.Now().Add(-time.Duration(hours) * time.Hour).UnixMilli()
+	
+	// 统计总数
+	var total int64
+	s.db.Model(&Event{}).Where("timestamp >= ?", startTime).Count(&total)
+	// 解析查询参数
+	agentID := c.Query("agent_id")
+	severity := c.Query("severity")
+	status := c.Query("status")
+	keyword := c.Query("keyword")
+
+	// 时间范围
+	startTime, _ := strconv.ParseInt(c.DefaultQuery("start_time", "0"), 10, 64)
+	endTime, _ := strconv.ParseInt(c.DefaultQuery("end_time", "0"), 10, 64)
+	if startTime == 0 {
+		startTime = time.Now().Add(-7 * 24 * time.Hour).UnixMilli()
+	}
+	if endTime == 0 {
+		endTime = time.Now().UnixMilli()
+	}
+
+	// 分页
+	size, _ := strconv.Atoi(c.DefaultQuery("size", "50"))
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	offset := (page - 1) * size
+
+	// 构建查询
+	query := s.db.Model(&Alert{})
+	
+	if agentID != "" {
+		query = query.Where("agent_id = ?", agentID)
+	}
+	if severity != "" {
+		query = query.Where("severity = ?", severity)
+	}
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	if keyword != "" {
+		query = query.Where("title LIKE ? OR description LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
+	}
+	
+	query = query.Where("first_seen >= ? AND last_seen <= ?", startTime, endTime)
+
+	// 获取总数
+	var total int64
+	query.Count(&total)
+
+	// 查询数据
+	var alerts []Alert
+	if err := query.Order("last_seen DESC").Limit(size).Offset(offset).Find(&alerts).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"total":  total,
+		"alerts": alerts,
+		"page":   page,
+		"size":   size,
+	})
+}
+
+// updateAlertStatus 更新告警状态
+	}
+	if endTime == 0 {
+		endTime = time.Now().UnixMilli()
+	}
+	params.StartTime = startTime
+	params.EndTime = endTime
+
+	// 构建 SQL（查询 hids_alerts stream）
+	sql := "SELECT * FROM hids_alerts WHERE 1=1"
+	if params.AgentID != "" {
+		sql += fmt.Sprintf(" AND agent_id = '%s'", params.AgentID)
+	}
+	if params.Severity != "" {
+		sq更新告警状态
+	updates := make(map[string]interface{})
+	if req.Status != "" {
+		updates["status"] = req.Status
+	}
+	if req.Assignee != "" {
+		updates["assignee"] = req.Assignee
+	}
+
+	if err := s.db.Model(&Alert{}).Where("id = ?", alertID).Updates(updates).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update alert"})
+		return
+	}
+	if params.Keyword != "" {
+		sql += fmt.Sprintf(" AND match_all('%s')", params.Keyword)
+	}
+	sql += " ORDER BY timestamp DESC LIMIT 50"
+
+	req := &QueryRequest{}
+	req.Query.SQL = sql
+	req.Query.StartTime = startTime
+	req.Query.EndTime = endTime
+
+	resp, err := s.o2Client.Query(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	alerts := make([]map[string]interface{}, len(resp.Hits))
+	for i, hit := range resp.Hits {
+		alerts[i] = hit.Source
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"total":  resp.Total,
+		"alerts": alerts,
+	})
+}
+
+// updateAlertStatus 更新告警状态
+func (s *APIServer) updateAlertStatus(c *gin.Context) {
+	alertID := c.Param("id")
+
+	var req struct {
+		Status   string `json:"status"`
+		Assignee string `json:"assignee"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 更新告警状态
+	updates := make(map[string]interface{})
+}

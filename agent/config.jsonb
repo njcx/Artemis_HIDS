@@ -1,0 +1,94 @@
+{
+  "server_addr": "127.0.0.1:50051",
+  "data_buff_size": 1000,
+  "report_interval": 5,
+  "tls": {
+    "enabled": true,
+    "ca_file": "certs/ca-cert.pem",
+    "cert_file": "",
+    "key_file": "",
+    "server_name": "hids-server"
+  },
+  "workers": [
+    {
+      "name": "file_monitor",
+      "binary_path": "./workers/file",
+      "resource_limit": {
+        "memory_mb": 100,
+        "cpu_percent": 1
+      }
+    },
+    {
+      "name": "network_monitor",
+      "binary_path": "./workers/network",
+      "resource_limit": {
+        "memory_mb": 100,
+        "cpu_percent": 1
+      }
+    },
+    {
+      "name": "exec_monitor",
+      "binary_path": "./workers/exec",
+      "resource_limit": {
+        "memory_mb": 100,
+        "cpu_percent": 1
+      }
+    },
+    {
+      "name": "security_log_monitor",
+      "binary_path": "./workers/log",
+      "resource_limit": {
+        "memory_mb": 100,
+        "cpu_percent": 1
+      }
+    },
+    {
+      "name": "port_monitor",
+      "binary_path": "./workers/port",
+      "resource_limit": {
+        "memory_mb": 50,
+        "cpu_percent": 1
+      }
+    },
+    {
+      "name": "system_monitor",
+      "binary_path": "./workers/system",
+      "resource_limit": {
+        "memory_mb": 50,
+        "cpu_percent": 1
+      }
+    },
+    {
+      "name": "package_monitor",
+      "binary_path": "./workers/package",
+      "resource_limit": {
+        "memory_mb": 150,
+        "cpu_percent": 1
+      }
+    },
+    {
+      "name": "language_monitor",
+      "binary_path": "./workers/language",
+      "resource_limit": {
+        "memory_mb": 50,
+        "cpu_percent": 1
+      }
+    },
+    {
+      "name": "container_monitor",
+      "binary_path": "./workers/container",
+      "resource_limit": {
+        "memory_mb": 50,
+        "cpu_percent": 1
+      }
+    },
+    {
+      "name": "process_monitor",
+      "binary_path": "./workers/process",
+      "resource_limit": {
+        "memory_mb": 100,
+        "cpu_percent": 1
+      }
+    }
+  ]
+}

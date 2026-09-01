@@ -1,0 +1,224 @@
+services:
+  kafka:
+    image: redpandadata/redpanda:latest
+    container_name: artemis-kafka
+    environment:
+      RP_BOOTSTRAP_USER: "${KAFKA_SASL_USERNAME}:${KAFKA_SASL_PASS}:SCRAM-SHA-256"
+    command:
+      - redpanda
+      - start
+      - --smp=1
+      - --memory=1G
+      - --overprovisioned
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr=PLAINTEXT://kafka:9092
+      - --set redpanda.enable_sasl=true
+      - --set redpanda.superusers=["${KAFKA_SASL_USERNAME}"]
+    ports:
+      - "19092:9092"
+    volumes:
+      - kafka-data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health -X user=${KAFKA_SASL_USERNAME} -X pass=${KAFKA_SASL_PASS} -X sasl.mechanism=SCRAM-SHA-256"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks:
+      - artemis
+
+  mongodb:
+    image: percona/percona-server-mongodb:7.0
+    container_name: artemis-mongodb
+    ports:
+      - "47017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASS}
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - artemis
+
+  redis:
+    image: redis:5-alpine
+    container_name: artemis-redis
+    environment:
+      REDIS_PASS: ${REDIS_PASS}
+    command: ["sh", "-c", "redis-server --requirepass \"$$REDIS_PASS\""]
+    ports:
+      - "11379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASS\" ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - artemis
+
+  openobserve:
+    image: public.ecr.aws/zinclabs/openobserve:v0.92.0
+    container_name: artemis-openobserve
+    ports:
+      - "5080:5080"
+    environment:
+      ZO_ROOT_USER_EMAIL: ${OPENOBSERVE_ROOT_EMAIL}
+      ZO_ROOT_USER_PASSWORD: ${OPENOBSERVE_ROOT_PASS}
+    volumes:
+      - openobserve-data:/data
+    networks:
+      - artemis
+
+  server_rust:
+    build:
+      context: .
+      dockerfile: server_rust/Dockerfile
+    container_name: artemis-server
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "50051:50051"
+    environment:
+      REDIS_PASS: ${REDIS_PASS}
+      KAFKA_SASL_USERNAME: ${KAFKA_SASL_USERNAME}
+      KAFKA_SASL_PASS: ${KAFKA_SASL_PASS}
+    volumes:
+      - ./docker/config/server_rust.config.yaml.tmpl:/app/config.yaml.tmpl:ro
+    networks:
+      - artemis
+    restart: unless-stopped
+
+  connector:
+    build:
+      context: .
+      dockerfile: connector/Dockerfile
+    container_name: artemis-connector
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      openobserve:
+        condition: service_started
+    environment:
+      REDIS_PASS: ${REDIS_PASS}
+      OPENOBSERVE_ROOT_EMAIL: ${OPENOBSERVE_ROOT_EMAIL}
+      OPENOBSERVE_ROOT_PASS: ${OPENOBSERVE_ROOT_PASS}
+      KAFKA_SASL_USERNAME: ${KAFKA_SASL_USERNAME}
+      KAFKA_SASL_PASS: ${KAFKA_SASL_PASS}
+    volumes:
+      - ./docker/config/connector.config.yaml.tmpl:/app/config.yaml.tmpl:ro
+    networks:
+      - artemis
+    restart: unless-stopped
+
+  rule-enginx:
+    build:
+      context: .
+      dockerfile: rule-enginx_rust/Dockerfile
+    container_name: artemis-rule-enginx
+    depends_on:
+      kafka:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    environment:
+      KAFKA_SASL_USERNAME: ${KAFKA_SASL_USERNAME}
+      KAFKA_SASL_PASS: ${KAFKA_SASL_PASS}
+      MONGO_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
+      MONGO_ROOT_PASS: ${MONGO_ROOT_PASS}
+    volumes:
+      - ./docker/config/rule-enginx.config.yaml.tmpl:/app/config.yaml.tmpl:ro
+    networks:
+      - artemis
+    restart: unless-stopped
+
+  mongo_syncer:
+    build:
+      context: .
+      dockerfile: mongo_syncer/Dockerfile
+    container_name: artemis-mongo-syncer
+    depends_on:
+      kafka:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    environment:
+      MONGO_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
+      MONGO_ROOT_PASS: ${MONGO_ROOT_PASS}
+      KAFKA_SASL_USERNAME: ${KAFKA_SASL_USERNAME}
+      KAFKA_SASL_PASS: ${KAFKA_SASL_PASS}
+    volumes:
+      - ./docker/config/mongo_syncer.config.yaml.tmpl:/app/config.yaml.tmpl:ro
+    networks:
+      - artemis
+    restart: unless-stopped
+
+  manager:
+    build:
+      context: .
+      dockerfile: manager/Dockerfile
+    container_name: artemis-manager
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    ports:
+      - "8085:8080"
+    environment:
+      REDIS_PASS: ${REDIS_PASS}
+      MONGO_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
+      MONGO_ROOT_PASS: ${MONGO_ROOT_PASS}
+      MANAGER_ADMIN_PASSWORD: ${MANAGER_ADMIN_PASSWORD}
+    volumes:
+      - ./docker/config/manager.config.yaml.tmpl:/app/config.yaml.tmpl:ro
+    networks:
+      - artemis
+    restart: unless-stopped
+
+  agent-builder:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+      args:
+        PUBLIC_IP: ${LAN_IP}
+    image: artemis-agent:latest
+    container_name: artemis-agent-builder
+    profiles:
+      - build-only
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: artemis-frontend
+    depends_on:
+      - manager
+    ports:
+      - "8086:80"
+      - "8081:8081"
+    networks:
+      - artemis
+    restart: unless-stopped
+
+networks:
+  artemis:
+    driver: bridge
+
+volumes:
+  kafka-data:
+  mongo-data:
+  redis-data:
+  openobserve-data:

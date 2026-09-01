@@ -1,0 +1,24 @@
+# .gitignore for Rust project
+
+# Rust build artifacts
+/target/
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+alerts.log
+rule-engine.log
+
+# Backup files
+*.bak
+*~

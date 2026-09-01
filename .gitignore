@@ -1,0 +1,8 @@
+.idea
+frontend/node_modules
+.env
+agent/certs
+server_rust/certs
+server_rust/target
+rule-enginx_rust/target
+connector/target

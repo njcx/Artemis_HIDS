@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+package hids;
+option go_package = "artemis-hids/server/pb";
+
+// HIDS 服务定义
+service HIDSService {
+  // Agent 发送批量事件
+  rpc SendBatch(BatchRequest) returns (BatchResponse);
+  
+  // Agent 心跳 (返回待执行的命令)
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+  
+  // Agent 轮询获取配置命令
+  rpc GetCommands(CommandRequest) returns (CommandResponse);
+  
+  // Agent 报告命令执行结果
+  rpc ReportCommandResult(CommandResult) returns (CommandResultAck);
+}
+
+// 批量事件请求
+message BatchRequest {
+  string agent_id = 1;
+  repeated Event events = 2;
+  int64 timestamp = 3;
+}
+
+message Event {
+  string event_type = 1;  // file, process, network
+  int64 timestamp = 2;
+  string data = 3;        // JSON格式
+}
+
+message BatchResponse {
+  bool success = 1;
+  string message = 2;
+  repeated Command commands = 3; // 可以在响应中返回待执行的命令
+}
+
+// 心跳请求
+message HeartbeatRequest {
+  string agent_id = 1;
+  string version = 2;
+  map<string, WorkerStatus> workers = 3;
+  SystemInfo system_info = 4;
+  int64 timestamp = 5;
+}
+
+message WorkerStatus {
+  string name = 1;
+  bool enabled = 2;
+  string status = 3;  // running, stopped, error
+}
+
+message SystemInfo {
+  double cpu_usage = 1;
+  double memory_usage = 2;
+  int64 uptime = 3;
+}
+
+message HeartbeatResponse {
+  bool success = 1;
+  int32 interval = 2;           // 心跳间隔(秒)
+  repeated Command commands = 3; // 待执行的命令
+}
+
+// 获取命令请求
+message CommandRequest {
+  string agent_id = 1;
+  int64 last_command_id = 2; // 最后执行的命令ID
+}
+
+message CommandResponse {
+  repeated Command commands = 1;
+}
+
+// 配置命令
+message Command {
+  string command_id = 1;
+  string command_type = 2; // stop_worker, start_worker, update_agent, update_worker, set_config
+  map<string, string> payload = 3;
+  int64 timestamp = 4;
+}
+
+// 命令执行结果
+message CommandResult {
+  string agent_id = 1;
+  string command_id = 2;
+  bool success = 3;
+  string message = 4;
+  int64 timestamp = 5;
+}
+
+message CommandResultAck {
+  bool received = 1;
+}

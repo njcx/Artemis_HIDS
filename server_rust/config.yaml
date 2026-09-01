@@ -1,0 +1,45 @@
+server:
+  host: "0.0.0.0"
+  port: 50051
+  max_concurrent_streams: 50000  # 5万并发流（支持大量实时上报）
+  max_receive_message_size: 16777216  # 16MB
+  read_buffer_size: 65536  # 64KB 读缓冲
+  write_buffer_size: 65536  # 64KB 写缓冲
+  # TLS配置
+  tls:
+    enabled: true
+    cert_file: "certs/server-cert.pem"
+    key_file: "certs/server-key.pem"
+    ca_file: "certs/ca-cert.pem"  # 用于客户端证书验证（双向TLS）
+    client_auth: false  # 是否要求客户端证书（false=单向TLS, true=双向TLS）
+
+kafka:
+  brokers:
+    - "127.0.0.1:19092"
+  topic: "hids_events"  # Topic 前缀，实际 topic 为: hids_events-{worker_name}
+  compression: "lz4"  # LZ4 压缩更快，适合高吞吐
+  batch_size: 1000  # 1000 消息/批次
+  batch_timeout: "10ms"  # 极低延迟
+  max_retries: 2
+  buffer_memory: 536870912  # 512MB 大缓冲区
+  max_in_flight: 100  # 允许 100 个并发请求
+  async: true  # 异步模式
+  compression_level: 1  # 快速压缩
+  # SASL认证配置（可选，为空则免密）
+  sasl:
+    enabled: false
+    mechanism: "PLAIN"  # PLAIN, SCRAM-SHA-256, SCRAM-SHA-512
+    username: ""
+    password: ""
+
+redis:
+  host: "127.0.0.1"
+  port: 11379
+  password: "pwd"  # 如果有密码则填写
+  
+logging:
+  level: "info"
+  file: "/var/log/artemis-hids/server.log"
+  max_size: 100  # MB
+  max_backups: 10
+  max_age: 30  # days
