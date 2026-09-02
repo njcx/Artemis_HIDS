@@ -133,6 +133,7 @@
 
 <script>
 import PageLayout from '@/layouts/PageLayout'
+import {removeAuthorization} from '@/utils/request'
 
 export default {
   name: 'ArtemisDashboard',
@@ -257,8 +258,10 @@ export default {
         } else if (response.status === 401) {
           console.warn('认证失败，token可能已过期，请重新登录')
           this.isAuthenticated = false
-          // 可以考虑跳转到登录页
-          // this.$router.push('/login')
+          removeAuthorization()
+          if (this.$router.currentRoute.path !== '/login') {
+            this.$router.push('/login')
+          }
         } else {
           console.error('获取仪表盘数据失败:', response.status, response.statusText)
           this.isAuthenticated = false

@@ -9,26 +9,18 @@ import (
 
 // Config 配置结构
 type Config struct {
-	Kafka   KafkaConfig   `yaml:"kafka"`
-	MongoDB MongoDBConfig `yaml:"mongodb"`
-	Sync    SyncConfig    `yaml:"sync"`
-	Log     LogConfig     `yaml:"log"`
+	OpenObserve OpenObserveConfig `yaml:"openobserve"`
+	MongoDB     MongoDBConfig     `yaml:"mongodb"`
+	Sync        SyncConfig        `yaml:"sync"`
+	Log         LogConfig         `yaml:"log"`
 }
 
-// KafkaConfig Kafka 配置
-type KafkaConfig struct {
-	Brokers []string   `yaml:"brokers"`
-	GroupID string     `yaml:"group_id"`
-	Topics  []string   `yaml:"topics"`
-	SASL    SASLConfig `yaml:"sasl"`
-}
-
-// SASLConfig SASL 认证配置
-type SASLConfig struct {
-	Enabled   bool   `yaml:"enabled"`
-	Mechanism string `yaml:"mechanism"`
-	Username  string `yaml:"username"`
-	Password  string `yaml:"password"`
+// OpenObserveConfig OpenObserve 查询配置
+type OpenObserveConfig struct {
+	URL      string `yaml:"url"`
+	Org      string `yaml:"org"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
 }
 
 // MongoDBConfig MongoDB 配置
@@ -42,11 +34,12 @@ type MongoDBConfig struct {
 
 // SyncConfig 同步配置
 type SyncConfig struct {
-	BatchSize       int  `yaml:"batch_size"`
-	FlushInterval   int  `yaml:"flush_interval"`
-	SystemInfoDedup bool `yaml:"system_info_dedup"`
-	AlertDedup      bool `yaml:"alert_dedup"`
-	Workers         int  `yaml:"workers"`
+	// PollInterval 轮询 OpenObserve 的间隔（秒）
+	PollInterval int `yaml:"poll_interval"`
+	// LookbackSecs 首次启动或游标丢失时，流水型数据（进程/告警）回溯查询的时间窗口（秒）
+	LookbackSecs int `yaml:"lookback_secs"`
+	// BatchSize 批量写入 MongoDB 时的分批大小
+	BatchSize int `yaml:"batch_size"`
 }
 
 // LogConfig 日志配置
@@ -72,11 +65,14 @@ func LoadConfig(path string) (*Config, error) {
 	if config.Sync.BatchSize == 0 {
 		config.Sync.BatchSize = 100
 	}
-	if config.Sync.FlushInterval == 0 {
-		config.Sync.FlushInterval = 5
+	if config.Sync.PollInterval == 0 {
+		config.Sync.PollInterval = 30
 	}
-	if config.Sync.Workers == 0 {
-		config.Sync.Workers = 4
+	if config.Sync.LookbackSecs == 0 {
+		config.Sync.LookbackSecs = 300
+	}
+	if config.OpenObserve.Org == "" {
+		config.OpenObserve.Org = "default"
 	}
 	if config.MongoDB.MaxPoolSize == 0 {
 		config.MongoDB.MaxPoolSize = 100

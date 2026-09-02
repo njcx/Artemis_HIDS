@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -12,6 +13,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"syscall"
 	"time"
@@ -80,6 +82,12 @@ func (e *CommandExecutor) ProcessCommands(commands []*pb.Command) {
 				message = err.Error()
 			}
 
+		case "uninstall_agent":
+			// uninstallAgent 会自己先回传一次"已收到，即将卸载"的结果，再异步自毁，
+			// 所以这里不走下面统一的 reportResult，直接继续处理下一条命令即可。
+			e.uninstallAgent(cmd)
+			continue
+
 		default:
 			success = false
 			message = "unknown command type"
@@ -87,6 +95,30 @@ func (e *CommandExecutor) ProcessCommands(commands []*pb.Command) {
 
 		// 记录执行结果
 		log.Printf("Command %s executed: success=%v, message=%s", cmd.CommandId, success, message)
+
+		// 回传执行结果给 server
+		e.reportResult(cmd, success, message)
+	}
+}
+
+// reportResult 上报命令执行结果
+func (e *CommandExecutor) reportResult(cmd *pb.Command, success bool, message string) {
+	if e.client == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err := e.client.ReportCommandResult(ctx, &pb.CommandResult{
+		AgentId:   e.master.serverClient.agentID,
+		CommandId: cmd.CommandId,
+		Success:   success,
+		Message:   message,
+		Timestamp: time.Now().UnixNano(),
+	})
+	if err != nil {
+		log.Printf("Report command result failed: %v", err)
 	}
 }
 
@@ -195,6 +227,47 @@ func (e *CommandExecutor) updateAgent(version, downloadURL, checksum string) err
 	return nil
 }
 
+// uninstallAgent 远程卸载：先回传一次"已收到，即将卸载"的结果，再异步执行
+// systemctl stop/disable + 删除安装目录，最后自行退出。
+// 安装目录从当前可执行文件路径推导，而不是硬编码 /usr/local/artemis-agent，
+// 避免与 install.sh 的约定脱节。
+func (e *CommandExecutor) uninstallAgent(cmd *pb.Command) {
+	log.Printf("Uninstalling agent (command_id=%s)...", cmd.CommandId)
+
+	e.reportResult(cmd, true, "uninstall command received, agent will self-destruct shortly")
+
+	go func() {
+		time.Sleep(2 * time.Second)
+
+		if err := exec.Command("systemctl", "stop", "artemis-agent").Run(); err != nil {
+			log.Printf("Warning: systemctl stop failed: %v", err)
+		}
+		if err := exec.Command("systemctl", "disable", "artemis-agent").Run(); err != nil {
+			log.Printf("Warning: systemctl disable failed: %v", err)
+		}
+		if err := os.Remove("/etc/systemd/system/artemis-agent.service"); err != nil && !os.IsNotExist(err) {
+			log.Printf("Warning: remove service file failed: %v", err)
+		}
+		if err := exec.Command("systemctl", "daemon-reload").Run(); err != nil {
+			log.Printf("Warning: systemctl daemon-reload failed: %v", err)
+		}
+
+		exePath, err := os.Executable()
+		if err != nil {
+			log.Printf("Warning: get executable path failed: %v, cannot remove install dir", err)
+		} else {
+			installDir := filepath.Dir(exePath)
+			log.Printf("Removing install directory: %s", installDir)
+			if err := os.RemoveAll(installDir); err != nil {
+				log.Printf("Warning: remove install dir failed: %v", err)
+			}
+		}
+
+		log.Println("Agent uninstalled, exiting")
+		os.Exit(0)
+	}()
+}
+
 // updateWorker 更新 Worker 插件
 func (e *CommandExecutor) updateWorker(workerName, version, downloadURL, checksum string) error {
 	log.Printf("Updating worker %s to version %s from %s", workerName, version, downloadURL)
@@ -248,13 +321,30 @@ func (e *CommandExecutor) updateWorker(workerName, version, downloadURL, checksu
 	return e.startWorker(workerName)
 }
 
-// setConfig 设置配置
+// setConfig 设置配置。支持两种方式：
+//  1. payload["config_json"] 存在时，反序列化成完整 *Config 整体替换（manager 的
+//     updateAgentConfig 走这条路径，因为 gRPC payload 是 map<string,string>，无法直接传嵌套对象）。
+//  2. 否则按零散字段（server_addr/report_interval/data_buff_size）增量更新，兼容旧命令来源。
 func (e *CommandExecutor) setConfig(payload map[string]string) error {
 	log.Printf("Setting config: %+v", payload)
 
-	// 1. 验证配置
 	if len(payload) == 0 {
 		return fmt.Errorf("empty config payload")
+	}
+
+	if configJSON, ok := payload["config_json"]; ok {
+		var newConfig Config
+		if err := json.Unmarshal([]byte(configJSON), &newConfig); err != nil {
+			return fmt.Errorf("invalid config_json: %v", err)
+		}
+		*e.master.config = newConfig
+		log.Printf("Configuration replaced wholesale from config_json")
+
+		if err := e.saveConfig(); err != nil {
+			return fmt.Errorf("save config failed: %v", err)
+		}
+		log.Println("Configuration updated successfully")
+		return nil
 	}
 
 	// 2. 更新内存中的配置
@@ -291,9 +381,12 @@ func (e *CommandExecutor) setConfig(payload map[string]string) error {
 	return nil
 }
 
-// saveConfig 保存配置到文件
+// saveConfig 保存配置到文件（使用启动时传入的真实配置路径，而不是硬编码相对路径）
 func (e *CommandExecutor) saveConfig() error {
-	configPath := "config.json"
+	configPath := e.master.configPath
+	if configPath == "" {
+		configPath = "config.json"
+	}
 
 	// 序列化配置
 	data, err := json.MarshalIndent(e.master.config, "", "  ")

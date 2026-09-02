@@ -19,7 +19,7 @@ func main() {
 	flag.Parse()
 
 	log.Println("========================================")
-	log.Println("  Kafka 到 MongoDB 同步工具")
+	log.Println("  OpenObserve 到 MongoDB 同步工具")
 	log.Println("========================================")
 
 	// 加载配置
@@ -67,16 +67,14 @@ func main() {
 	// 打印配置信息
 	log.Println("========================================")
 	log.Println("[INFO] 配置信息:")
-	log.Printf("  Kafka Brokers: %v", cfg.Kafka.Brokers)
-	log.Printf("  Kafka Topics: %v", cfg.Kafka.Topics)
-	log.Printf("  Kafka Group ID: %s", cfg.Kafka.GroupID)
+	log.Printf("  OpenObserve URL: %s", cfg.OpenObserve.URL)
+	log.Printf("  OpenObserve Org: %s", cfg.OpenObserve.Org)
+	log.Printf("  OpenObserve Username: %s", maskCredential(cfg.OpenObserve.Username))
 	log.Printf("  MongoDB URI: %s", maskURI(cfg.MongoDB.URI))
 	log.Printf("  MongoDB Database: %s", cfg.MongoDB.Database)
+	log.Printf("  Poll Interval: %d 秒", cfg.Sync.PollInterval)
+	log.Printf("  Lookback: %d 秒", cfg.Sync.LookbackSecs)
 	log.Printf("  Batch Size: %d", cfg.Sync.BatchSize)
-	log.Printf("  Flush Interval: %d 秒", cfg.Sync.FlushInterval)
-	log.Printf("  Workers: %d", cfg.Sync.Workers)
-	log.Printf("  System Info Dedup: %v", cfg.Sync.SystemInfoDedup)
-	log.Printf("  Alert Dedup: %v", cfg.Sync.AlertDedup)
 	log.Println("========================================")
 	log.Println("[INFO] 同步器已启动，按 Ctrl+C 退出")
 
@@ -96,6 +94,14 @@ func maskURI(uri string) string {
 	// 简单的密码隐藏逻辑
 	if len(uri) > 20 {
 		return uri[:20] + "***"
+	}
+	return "***"
+}
+
+// maskCredential 脱敏用户名等敏感字符串，只保留前3位
+func maskCredential(s string) string {
+	if len(s) > 3 {
+		return s[:3] + "***"
 	}
 	return "***"
 }

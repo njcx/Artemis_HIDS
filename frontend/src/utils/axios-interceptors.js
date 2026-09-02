@@ -1,4 +1,6 @@
-// 401拦截
+import {removeAuthorization} from '@/utils/request'
+
+// 401拦截：token 缺失/过期/失效，清除本地登录态并强制跳转登录页
 const resp401 = {
   /**
    * 响应数据之前做点什么
@@ -20,10 +22,14 @@ const resp401 = {
    * @returns {Promise<never>}
    */
   onRejected(error, options) {
-    const {message} = options
+    const {message, router} = options
     const {response} = error
     if (response.status === 401) {
-      message.error('无此权限')
+      removeAuthorization()
+      if (router && router.currentRoute.path !== '/login') {
+        message.error('登录已失效，请重新登录')
+        router.push('/login')
+      }
     }
     return Promise.reject(error)
   }

@@ -1,16 +1,9 @@
-# Kafka 到 MongoDB 同步工具配置文件 (Docker Compose)
-kafka:
-  brokers:
-    - "kafka:9092"
-  group_id: "mongo-syncer-group"
-  topics:
-    - "hids_events-system_monitor"
-    - "hids_alerts"
-  sasl:
-    enabled: true
-    mechanism: "SCRAM-SHA-256"
-    username: "${KAFKA_SASL_USERNAME}"
-    password: "${KAFKA_SASL_PASS}"
+# OpenObserve 到 MongoDB 同步工具配置文件 (Docker Compose)
+openobserve:
+  url: "http://openobserve:5080"
+  org: "default"
+  username: "${OPENOBSERVE_ROOT_EMAIL}"
+  password: "${OPENOBSERVE_ROOT_PASS}"
 
 mongodb:
   uri: "mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASS}@mongodb:27017/artemis_hids?authSource=admin&authMechanism=SCRAM-SHA-256"
@@ -20,11 +13,9 @@ mongodb:
   max_conn_idle_time: 3600
 
 sync:
+  poll_interval: 30
+  lookback_secs: 300
   batch_size: 100
-  flush_interval: 5
-  system_info_dedup: true
-  alert_dedup: false
-  workers: 4
 
 log:
   level: "info"

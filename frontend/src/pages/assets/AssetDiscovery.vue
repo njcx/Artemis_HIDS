@@ -34,21 +34,10 @@
           <a-col :span="6">
             <div class="stat-card">
               <div class="stat-icon" style="background: linear-gradient(135deg, #1890ff 0%, #40a9ff 100%);">
-                <a-icon type="apartment" />
-              </div>
-              <div class="stat-content">
-                <div class="stat-value">{{ stats.services }}</div>
-                <div class="stat-label">服务</div>
-              </div>
-            </div>
-          </a-col>
-          <a-col :span="6">
-            <div class="stat-card">
-              <div class="stat-icon" style="background: linear-gradient(135deg, #52c41a 0%, #73d13d 100%);">
                 <a-icon type="api" />
               </div>
               <div class="stat-content">
-                <div class="stat-value">{{ stats.ports }}</div>
+                <div class="stat-value">{{ portsTotal }}</div>
                 <div class="stat-label">开放端口</div>
               </div>
             </div>
@@ -59,8 +48,19 @@
                 <a-icon type="file-zip" />
               </div>
               <div class="stat-content">
-                <div class="stat-value">{{ stats.packages }}</div>
+                <div class="stat-value">{{ softwareTotal }}</div>
                 <div class="stat-label">软件包</div>
+              </div>
+            </div>
+          </a-col>
+          <a-col :span="6">
+            <div class="stat-card">
+              <div class="stat-icon" style="background: linear-gradient(135deg, #13c2c2 0%, #5cdbd3 100%);">
+                <a-icon type="container" />
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ containersTotal }}</div>
+                <div class="stat-label">容器</div>
               </div>
             </div>
           </a-col>
@@ -83,29 +83,20 @@
         <a-tab-pane key="ports" tab="监听端口">
           <a-input-search
             v-model="portsSearch"
-            placeholder="搜索端口或服务"
+            placeholder="搜索进程名"
             style="width: 300px; margin-bottom: 16px"
-            @search="handlePortsSearch"
+            @search="fetchPorts"
           />
           <a-table
             :columns="portColumns"
             :data-source="portsData"
-            :loading="loading"
-            :pagination="{ pageSize: 10 }"
+            :loading="portsLoading"
+            :pagination="portsPagination"
             rowKey="id"
+            @change="handlePortsTableChange"
           >
             <template slot="port" slot-scope="port, record">
               <a-tag color="blue">{{ port }}/{{ record.protocol }}</a-tag>
-            </template>
-            
-            <template slot="state" slot-scope="state">
-              <a-badge :status="state === 'LISTEN' ? 'success' : 'default'" :text="state" />
-            </template>
-            
-            <template slot="risk" slot-scope="risk">
-              <a-tag :color="getRiskColor(risk)">
-                {{ getRiskText(risk) }}
-              </a-tag>
             </template>
           </a-table>
         </a-tab-pane>
@@ -128,7 +119,7 @@
             <template slot="status" slot-scope="status">
               <a-badge :status="status === 'running' ? 'success' : 'error'" :text="status === 'running' ? '运行中' : '已停止'" />
             </template>
-            
+
             <template slot="autoStart" slot-scope="autoStart">
               <a-icon :type="autoStart ? 'check-circle' : 'close-circle'" :style="{ color: autoStart ? '#52c41a' : '#d9d9d9' }" />
             </template>
@@ -138,41 +129,42 @@
         <!-- 软件包 -->
         <a-tab-pane key="packages" tab="软件包">
           <div style="margin-bottom: 16px">
-            <a-radio-group v-model="packageType" button-style="solid" @change="handlePackageTypeChange">
-              <a-radio-button value="all">全部</a-radio-button>
-              <a-radio-button value="yum">YUM/RPM</a-radio-button>
-              <a-radio-button value="apt">APT/DEB</a-radio-button>
-              <a-radio-button value="pip">PIP</a-radio-button>
-              <a-radio-button value="npm">NPM</a-radio-button>
-            </a-radio-group>
             <a-input-search
               v-model="packagesSearch"
               placeholder="搜索软件包名称"
-              style="width: 300px; margin-left: 16px"
-              @search="handlePackagesSearch"
+              style="width: 300px"
+              @search="fetchSoftware"
             />
           </div>
           <a-table
             :columns="packageColumns"
             :data-source="packagesData"
-            :loading="loading"
-            :pagination="{ pageSize: 10 }"
+            :loading="softwareLoading"
+            :pagination="softwarePagination"
             rowKey="id"
+            @change="handleSoftwareTableChange"
           >
-            <template slot="type" slot-scope="type">
-              <a-tag :color="getPackageTypeColor(type)">
-                {{ type.toUpperCase() }}
-              </a-tag>
-            </template>
-            
-            <template slot="hasUpdate" slot-scope="hasUpdate, record">
-              <span v-if="hasUpdate">
-                <a-tag color="orange">可更新</a-tag>
-                <span style="color: #8c8c8c">{{ record.latestVersion }}</span>
-              </span>
-              <span v-else style="color: #52c41a">
-                <a-icon type="check-circle" /> 最新
-              </span>
+          </a-table>
+        </a-tab-pane>
+
+        <!-- 容器 -->
+        <a-tab-pane key="containers" tab="容器">
+          <a-input-search
+            v-model="containersSearch"
+            placeholder="搜索容器名/镜像"
+            style="width: 300px; margin-bottom: 16px"
+            @search="fetchContainers"
+          />
+          <a-table
+            :columns="containerColumns"
+            :data-source="containersData"
+            :loading="containersLoading"
+            :pagination="containersPagination"
+            rowKey="id"
+            @change="handleContainersTableChange"
+          >
+            <template slot="status" slot-scope="status">
+              <a-badge :status="status === 'running' ? 'success' : 'default'" :text="status" />
             </template>
           </a-table>
         </a-tab-pane>
@@ -198,7 +190,7 @@
                 <div style="font-size: 12px; color: #8c8c8c">JDK {{ record.jdkVersion }}</div>
               </div>
             </template>
-            
+
             <template slot="vulnerabilities" slot-scope="vulnerabilities">
               <a-tag v-if="vulnerabilities > 0" color="red">
                 {{ vulnerabilities }} 个漏洞
@@ -239,7 +231,7 @@
                 {{ type }}
               </a-tag>
             </template>
-            
+
             <template slot="license" slot-scope="license">
               <span style="color: #595959">{{ license }}</span>
             </template>
@@ -252,6 +244,8 @@
 
 <script>
 import PageLayout from '@/layouts/PageLayout'
+import { request, METHOD } from '@/utils/request'
+import { getAssetPorts, getAssetSoftware, getAssetContainers } from '@/services/assetManagement'
 
 export default {
   name: 'AssetDiscovery',
@@ -259,45 +253,38 @@ export default {
   data() {
     return {
       selectedHost: 'all',
-      hosts: [
-        { id: 1, hostname: 'web-server-01', ip: '192.168.1.101' },
-        { id: 2, hostname: 'db-server-02', ip: '192.168.1.102' },
-        { id: 3, hostname: 'app-server-03', ip: '192.168.1.103' }
-      ],
+      hosts: [],
       stats: {
-        services: 45,
-        ports: 23,
-        packages: 1247,
         dependencies: 328
       },
       activeTab: 'ports',
       loading: false,
-      portsSearch: '',
       servicesSearch: '',
-      packagesSearch: '',
       javaSearch: '',
       depsSearch: '',
-      packageType: 'all',
       depType: 'all',
-      
-      // 端口数据
-      portsData: [
-        { id: 1, hostname: 'web-server-01', port: 22, protocol: 'TCP', service: 'SSH', process: 'sshd', state: 'LISTEN', risk: 'low' },
-        { id: 2, hostname: 'web-server-01', port: 80, protocol: 'TCP', service: 'HTTP', process: 'nginx', state: 'LISTEN', risk: 'medium' },
-        { id: 3, hostname: 'web-server-01', port: 443, protocol: 'TCP', service: 'HTTPS', process: 'nginx', state: 'LISTEN', risk: 'low' },
-        { id: 4, hostname: 'db-server-02', port: 3306, protocol: 'TCP', service: 'MySQL', process: 'mysqld', state: 'LISTEN', risk: 'high' },
-        { id: 5, hostname: 'app-server-03', port: 8080, protocol: 'TCP', service: 'HTTP-Alt', process: 'java', state: 'LISTEN', risk: 'medium' }
-      ],
+
+      // 端口数据（真实接口）
+      portsSearch: '',
+      portsLoading: false,
+      portsData: [],
+      portsTotal: 0,
+      portsPagination: {
+        current: 1,
+        pageSize: 10,
+        total: 0,
+        showSizeChanger: true,
+        showTotal: total => `共 ${total} 条记录`
+      },
       portColumns: [
-        { title: '主机', dataIndex: 'hostname', key: 'hostname', width: 150 },
+        { title: '主机', dataIndex: 'agent_id', key: 'agent_id', width: 220 },
         { title: '端口', dataIndex: 'port', key: 'port', width: 100, scopedSlots: { customRender: 'port' } },
-        { title: '服务', dataIndex: 'service', key: 'service', width: 120 },
-        { title: '进程', dataIndex: 'process', key: 'process', width: 120 },
-        { title: '状态', dataIndex: 'state', key: 'state', width: 100, scopedSlots: { customRender: 'state' } },
-        { title: '风险级别', dataIndex: 'risk', key: 'risk', width: 100, scopedSlots: { customRender: 'risk' } }
+        { title: '进程', dataIndex: 'process_name', key: 'process_name', width: 150 },
+        { title: '本地地址', dataIndex: 'local_address', key: 'local_address', width: 150 },
+        { title: 'PID', dataIndex: 'pid', key: 'pid', width: 100 }
       ],
-      
-      // 服务数据
+
+      // 服务数据（保持 mock，Agent 侧暂无独立服务采集器）
       servicesData: [
         { id: 1, hostname: 'web-server-01', name: 'nginx', description: 'Nginx Web Server', status: 'running', autoStart: true, version: '1.18.0' },
         { id: 2, hostname: 'web-server-01', name: 'docker', description: 'Docker Engine', status: 'running', autoStart: true, version: '20.10.8' },
@@ -312,25 +299,48 @@ export default {
         { title: '状态', dataIndex: 'status', key: 'status', width: 100, scopedSlots: { customRender: 'status' } },
         { title: '开机自启', dataIndex: 'autoStart', key: 'autoStart', width: 100, scopedSlots: { customRender: 'autoStart' } }
       ],
-      
-      // 软件包数据
-      packagesData: [
-        { id: 1, hostname: 'web-server-01', name: 'nginx', version: '1.18.0', type: 'yum', hasUpdate: false, latestVersion: null, installDate: '2024-01-15' },
-        { id: 2, hostname: 'web-server-01', name: 'python3', version: '3.8.10', type: 'apt', hasUpdate: true, latestVersion: '3.8.12', installDate: '2024-02-20' },
-        { id: 3, hostname: 'db-server-02', name: 'mysql-server', version: '8.0.26', type: 'apt', hasUpdate: false, latestVersion: null, installDate: '2024-03-10' },
-        { id: 4, hostname: 'app-server-03', name: 'requests', version: '2.25.1', type: 'pip', hasUpdate: true, latestVersion: '2.28.0', installDate: '2024-04-05' },
-        { id: 5, hostname: 'app-server-03', name: 'express', version: '4.17.1', type: 'npm', hasUpdate: true, latestVersion: '4.18.2', installDate: '2024-05-12' }
-      ],
+
+      // 软件包数据（真实接口）
+      packagesSearch: '',
+      softwareLoading: false,
+      packagesData: [],
+      softwareTotal: 0,
+      softwarePagination: {
+        current: 1,
+        pageSize: 10,
+        total: 0,
+        showSizeChanger: true,
+        showTotal: total => `共 ${total} 条记录`
+      },
       packageColumns: [
-        { title: '主机', dataIndex: 'hostname', key: 'hostname', width: 150 },
-        { title: '包名', dataIndex: 'name', key: 'name', width: 180 },
-        { title: '版本', dataIndex: 'version', key: 'version', width: 120 },
-        { title: '类型', dataIndex: 'type', key: 'type', width: 100, scopedSlots: { customRender: 'type' } },
-        { title: '安装日期', dataIndex: 'installDate', key: 'installDate', width: 120 },
-        { title: '更新状态', key: 'hasUpdate', width: 150, scopedSlots: { customRender: 'hasUpdate' } }
+        { title: '主机', dataIndex: 'agent_id', key: 'agent_id', width: 220 },
+        { title: '包名', dataIndex: 'name', key: 'name', width: 200 },
+        { title: '版本', dataIndex: 'version', key: 'version', width: 150 },
+        { title: '包管理器', dataIndex: 'package_manager', key: 'package_manager', width: 120 },
+        { title: '架构', dataIndex: 'architecture', key: 'architecture', width: 100 }
       ],
-      
-      // Java应用数据
+
+      // 容器数据（真实接口，新增 Tab）
+      containersSearch: '',
+      containersLoading: false,
+      containersData: [],
+      containersTotal: 0,
+      containersPagination: {
+        current: 1,
+        pageSize: 10,
+        total: 0,
+        showSizeChanger: true,
+        showTotal: total => `共 ${total} 条记录`
+      },
+      containerColumns: [
+        { title: '主机', dataIndex: 'agent_id', key: 'agent_id', width: 220 },
+        { title: '容器名', dataIndex: 'name', key: 'name', width: 180 },
+        { title: '镜像', dataIndex: 'image', key: 'image' },
+        { title: '状态', dataIndex: 'status', key: 'status', width: 120, scopedSlots: { customRender: 'status' } },
+        { title: '端口映射', dataIndex: 'ports', key: 'ports', width: 200 }
+      ],
+
+      // Java应用数据（保持 mock，Agent 侧暂无对应采集器）
       javaData: [
         { id: 1, hostname: 'app-server-03', name: 'spring-boot-app.jar', version: '2.5.4', jdkVersion: '11', path: '/opt/app/spring-boot-app.jar', vulnerabilities: 0 },
         { id: 2, hostname: 'app-server-03', name: 'tomcat', version: '9.0.50', jdkVersion: '8', path: '/usr/local/tomcat', vulnerabilities: 2 },
@@ -343,8 +353,8 @@ export default {
         { title: '路径', dataIndex: 'path', key: 'path', ellipsis: true },
         { title: '漏洞', dataIndex: 'vulnerabilities', key: 'vulnerabilities', width: 120, scopedSlots: { customRender: 'vulnerabilities' } }
       ],
-      
-      // 依赖库数据
+
+      // 依赖库数据（保持 mock，Agent 侧暂无对应采集器）
       depsData: [
         { id: 1, hostname: 'app-server-03', name: 'django', version: '3.2.7', type: 'Python', license: 'BSD' },
         { id: 2, hostname: 'app-server-03', name: 'flask', version: '2.0.1', type: 'Python', license: 'BSD' },
@@ -361,35 +371,135 @@ export default {
       ]
     }
   },
+  created() {
+    this.fetchHosts()
+    this.fetchPorts()
+    this.fetchSoftware()
+    this.fetchContainers()
+  },
   methods: {
-    handleHostChange(value) {
-      this.$message.info(`切换到主机: ${value}`)
-      this.loading = true
-      setTimeout(() => {
-        this.loading = false
-      }, 500)
+    async fetchHosts() {
+      try {
+        const res = await request('/api/v1/agents', METHOD.GET)
+        const agents = (res.data && res.data.agents) || []
+        this.hosts = agents.map(agent => ({
+          id: agent.agent_id,
+          hostname: agent.hostname || agent.agent_id,
+          ip: agent.ip || 'N/A'
+        }))
+      } catch (error) {
+        console.error('获取主机列表失败:', error)
+      }
+    },
+
+    currentAgentFilter() {
+      return this.selectedHost === 'all' ? '' : this.selectedHost
+    },
+
+    async fetchPorts() {
+      this.portsLoading = true
+      try {
+        const params = {
+          page: this.portsPagination.current,
+          page_size: this.portsPagination.pageSize
+        }
+        if (this.portsSearch) params.search = this.portsSearch
+        const agentID = this.currentAgentFilter()
+        if (agentID) params.agent_id = agentID
+
+        const res = await getAssetPorts(params)
+        const items = (res.data && res.data.items) || []
+        this.portsData = items.map(item => ({ ...item, id: item.id || `${item.agent_id}-${item.port}` }))
+        this.portsTotal = (res.data && res.data.total) || 0
+        this.portsPagination.total = this.portsTotal
+      } catch (error) {
+        console.error('获取端口资产失败:', error)
+        this.$message.error('获取端口资产失败')
+      } finally {
+        this.portsLoading = false
+      }
+    },
+
+    async fetchSoftware() {
+      this.softwareLoading = true
+      try {
+        const params = {
+          page: this.softwarePagination.current,
+          page_size: this.softwarePagination.pageSize
+        }
+        if (this.packagesSearch) params.search = this.packagesSearch
+        const agentID = this.currentAgentFilter()
+        if (agentID) params.agent_id = agentID
+
+        const res = await getAssetSoftware(params)
+        const items = (res.data && res.data.items) || []
+        this.packagesData = items.map(item => ({ ...item, id: item.id || `${item.agent_id}-${item.name}-${item.version}` }))
+        this.softwareTotal = (res.data && res.data.total) || 0
+        this.softwarePagination.total = this.softwareTotal
+      } catch (error) {
+        console.error('获取软件资产失败:', error)
+        this.$message.error('获取软件资产失败')
+      } finally {
+        this.softwareLoading = false
+      }
+    },
+
+    async fetchContainers() {
+      this.containersLoading = true
+      try {
+        const params = {
+          page: this.containersPagination.current,
+          page_size: this.containersPagination.pageSize
+        }
+        if (this.containersSearch) params.search = this.containersSearch
+        const agentID = this.currentAgentFilter()
+        if (agentID) params.agent_id = agentID
+
+        const res = await getAssetContainers(params)
+        const items = (res.data && res.data.items) || []
+        this.containersData = items.map(item => ({ ...item, id: item.id || `${item.agent_id}-${item.container_id}` }))
+        this.containersTotal = (res.data && res.data.total) || 0
+        this.containersPagination.total = this.containersTotal
+      } catch (error) {
+        console.error('获取容器资产失败:', error)
+        this.$message.error('获取容器资产失败')
+      } finally {
+        this.containersLoading = false
+      }
+    },
+
+    handlePortsTableChange(pagination) {
+      this.portsPagination = pagination
+      this.fetchPorts()
+    },
+    handleSoftwareTableChange(pagination) {
+      this.softwarePagination = pagination
+      this.fetchSoftware()
+    },
+    handleContainersTableChange(pagination) {
+      this.containersPagination = pagination
+      this.fetchContainers()
+    },
+
+    handleHostChange() {
+      this.fetchPorts()
+      this.fetchSoftware()
+      this.fetchContainers()
     },
     handleScan() {
       this.$message.success('正在执行资产扫描...')
     },
     handleRefresh() {
-      this.loading = true
-      setTimeout(() => {
-        this.loading = false
-        this.$message.success('刷新成功')
-      }, 500)
+      this.fetchHosts()
+      this.fetchPorts()
+      this.fetchSoftware()
+      this.fetchContainers()
     },
     handleExport() {
       this.$message.info('导出资产报告')
     },
-    handlePortsSearch() {
-      this.$message.info(`搜索端口: ${this.portsSearch}`)
-    },
     handleServicesSearch() {
       this.$message.info(`搜索服务: ${this.servicesSearch}`)
-    },
-    handlePackagesSearch() {
-      this.$message.info(`搜索软件包: ${this.packagesSearch}`)
     },
     handleJavaSearch() {
       this.$message.info(`搜索Java应用: ${this.javaSearch}`)
@@ -397,23 +507,8 @@ export default {
     handleDepsSearch() {
       this.$message.info(`搜索依赖库: ${this.depsSearch}`)
     },
-    handlePackageTypeChange() {
-      this.$message.info(`切换到: ${this.packageType}`)
-    },
     handleDepTypeChange() {
       this.$message.info(`切换到: ${this.depType}`)
-    },
-    getRiskColor(risk) {
-      const colors = { low: 'green', medium: 'orange', high: 'red' }
-      return colors[risk] || 'default'
-    },
-    getRiskText(risk) {
-      const texts = { low: '低风险', medium: '中风险', high: '高风险' }
-      return texts[risk] || risk
-    },
-    getPackageTypeColor(type) {
-      const colors = { yum: 'red', apt: 'purple', pip: 'blue', npm: 'green' }
-      return colors[type] || 'default'
     },
     getDepTypeColor(type) {
       const colors = { Python: 'blue', 'Node.js': 'green', Java: 'red', Go: 'cyan' }
@@ -430,7 +525,7 @@ export default {
 
 .asset-stats {
   margin-bottom: 24px;
-  
+
   .stat-card {
     display: flex;
     align-items: center;
@@ -439,12 +534,12 @@ export default {
     background: #fff;
     border: 1px solid #f0f0f0;
     transition: all 0.3s ease;
-    
+
     &:hover {
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
       transform: translateY(-2px);
     }
-    
+
     .stat-icon {
       width: 56px;
       height: 56px;
@@ -453,16 +548,16 @@ export default {
       justify-content: center;
       border-radius: 8px;
       margin-right: 16px;
-      
+
       .anticon {
         font-size: 28px;
         color: #fff;
       }
     }
-    
+
     .stat-content {
       flex: 1;
-      
+
       .stat-value {
         font-size: 28px;
         font-weight: 600;
@@ -470,7 +565,7 @@ export default {
         margin-bottom: 4px;
         color: #262626;
       }
-      
+
       .stat-label {
         font-size: 14px;
         color: #8c8c8c;

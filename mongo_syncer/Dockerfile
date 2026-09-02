@@ -5,7 +5,7 @@ WORKDIR /build
 COPY mongo_syncer/go.mod mongo_syncer/go.sum ./
 
 RUN go env -w GO111MODULE=on
-RUN go env -w GOPROXY=https://mirrors.aliyun.com/goproxy/,direct
+RUN go env -w GOPROXY=https://goproxy.cn,direct
 RUN go mod download
 
 COPY mongo_syncer/. .

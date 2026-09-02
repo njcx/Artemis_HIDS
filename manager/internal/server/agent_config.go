@@ -61,6 +61,9 @@ func (s *APIServer) setupConfigRoutes() {
 		// 更新 worker
 		config.POST("/agents/:id/workers/:worker/update", s.updateWorker)
 
+		// 远程卸载 agent
+		config.POST("/agents/:id/uninstall", s.uninstallAgent)
+
 		// 批量操作
 		config.POST("/batch", s.batchCommand)
 
@@ -92,12 +95,15 @@ func (s *APIServer) updateAgentConfig(c *gin.Context) {
 	s.redisClient.Set(ctx, key, data, 0)
 
 	// 发送配置更新命令
+	// 注意：Command.payload 在 gRPC 层是 map<string,string>（agent/proto/monitor.proto），
+	// 不能直接塞嵌套对象，否则 server_rust 转换时会被转成空字符串（丢数据）。
+	// 这里把整个 config 序列化成字符串放进 config_json 字段，Agent 侧再反序列化整体替换配置。
 	cmd := &ConfigCommand{
 		CommandID:   uuid.New().String(),
 		AgentID:     agentID,
 		CommandType: "set_config",
 		Payload: map[string]interface{}{
-			"config": config,
+			"config_json": string(data),
 		},
 		Timestamp: time.Now().UnixNano(),
 	}
@@ -250,6 +256,31 @@ func (s *APIServer) updateWorker(c *gin.Context) {
 	})
 }
 
+// uninstallAgent 远程卸载 agent
+func (s *APIServer) uninstallAgent(c *gin.Context) {
+	agentID := c.Param("id")
+	ctx := c.Request.Context()
+
+	cmd := &ConfigCommand{
+		CommandID:   uuid.New().String(),
+		AgentID:     agentID,
+		CommandType: "uninstall_agent",
+		Payload:     map[string]interface{}{},
+		Timestamp:   time.Now().UnixNano(),
+	}
+
+	if err := s.sendCommand(ctx, cmd); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to send command"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":    "uninstall command sent",
+		"command_id": cmd.CommandID,
+		"eta":        "within 30 seconds",
+	})
+}
+
 // batchCommand 批量执行命令
 func (s *APIServer) batchCommand(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -299,8 +330,8 @@ func (s *APIServer) batchCommand(c *gin.Context) {
 func (s *APIServer) sendCommand(ctx context.Context, cmd *ConfigCommand) error {
 	data, _ := json.Marshal(cmd)
 
-	// 保存到 Redis 队列
-	key := fmt.Sprintf("agent:commands:%s", cmd.AgentID)
+	// 保存到 Redis 队列（key 格式需与 server_rust 的 RedisClient::get_commands 一致）
+	key := fmt.Sprintf("agent:%s:commands", cmd.AgentID)
 	if err := s.redisClient.RPush(ctx, key, data).Err(); err != nil {
 		return err
 	}
@@ -318,24 +349,44 @@ func (s *APIServer) sendCommand(ctx context.Context, cmd *ConfigCommand) error {
 }
 
 // getCommandResult 查询命令执行结果
+// 命令结果的所属 agent 未知时，需要客户端一并提供 agent_id（query 参数），
+// 因为 server_rust 的 RedisClient::save_command_result 是按 agent 维度存 List，
+// 而不是按 command_id 存独立 key。
 func (s *APIServer) getCommandResult(c *gin.Context) {
 	commandID := c.Param("id")
+	agentID := c.Query("agent_id")
 	ctx := c.Request.Context()
 
-	key := fmt.Sprintf("agent:command:result:%s", commandID)
-	result, err := s.redisClient.HGetAll(ctx, key).Result()
-	if err != nil || len(result) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "result not found"})
+	if agentID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "agent_id query param is required"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"command_id": commandID,
-		"agent_id":   result["agent_id"],
-		"success":    result["success"] == "1" || result["success"] == "true",
-		"message":    result["message"],
-		"timestamp":  result["timestamp"],
-	})
+	key := fmt.Sprintf("agent:%s:command_results", agentID)
+	results, err := s.redisClient.LRange(ctx, key, 0, -1).Result()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get command results"})
+		return
+	}
+
+	for _, raw := range results {
+		var result map[string]interface{}
+		if err := json.Unmarshal([]byte(raw), &result); err != nil {
+			continue
+		}
+		if fmt.Sprintf("%v", result["command_id"]) == commandID {
+			c.JSON(http.StatusOK, gin.H{
+				"command_id": commandID,
+				"agent_id":   agentID,
+				"success":    result["success"],
+				"message":    result["message"],
+				"timestamp":  result["timestamp"],
+			})
+			return
+		}
+	}
+
+	c.JSON(http.StatusNotFound, gin.H{"error": "result not found"})
 }
 
 // getCommandHistory 查询命令历史

@@ -15,6 +15,18 @@ import (
 	"github.com/florianl/go-conntrack"
 )
 
+// 同一五元组的上报限流：滑动窗口内最多上报次数
+const (
+	rateLimitWindow   = 5 * time.Minute
+	rateLimitMaxCount = 5
+)
+
+// rateLimitEntry 五元组限流计数条目
+type rateLimitEntry struct {
+	windowStart time.Time
+	count       int
+}
+
 // NetworkMonitorWorker 网络监控Worker (使用 conntrack)
 type NetworkMonitorWorker struct {
 	ctx             context.Context
@@ -22,6 +34,7 @@ type NetworkMonitorWorker struct {
 	healthy         atomic.Bool
 	checkCount      atomic.Uint64
 	suspiciousCount atomic.Uint64
+	droppedByRate   atomic.Uint64
 	startTime       time.Time
 	mu              sync.RWMutex
 	callback        shared.DataCallback
@@ -29,8 +42,9 @@ type NetworkMonitorWorker struct {
 	// conntrack 连接
 	nfct *conntrack.Nfct
 
-	// 连接跟踪
-	seenConnections map[string]bool
+	// 同一五元组的滑动窗口限流计数（5 分钟内最多上报 5 次，超出静默丢弃）
+	rateLimitMu sync.Mutex
+	rateLimits  map[string]*rateLimitEntry
 
 	// 本机IP地址列表
 	localIPs map[string]bool
@@ -52,11 +66,11 @@ type ConnectionInfo struct {
 
 func NewNetworkMonitorWorker() *NetworkMonitorWorker {
 	w := &NetworkMonitorWorker{
-		startTime:       time.Now(),
-		seenConnections: make(map[string]bool),
-		localIPs:        make(map[string]bool),
-		eventQueue:      make([]*shared.MonitorData, 0, 1000),
-		maxQueueSize:    1000,
+		startTime:    time.Now(),
+		rateLimits:   make(map[string]*rateLimitEntry),
+		localIPs:     make(map[string]bool),
+		eventQueue:   make([]*shared.MonitorData, 0, 1000),
+		maxQueueSize: 1000,
 	}
 	w.healthy.Store(true)
 
@@ -137,8 +151,26 @@ func (w *NetworkMonitorWorker) Start(ctx context.Context, callback shared.DataCa
 	// 定期更新本机IP列表（处理DHCP/网络变化）
 	go w.ipUpdateLoop()
 
+	// 定期清理过期的限流计数条目
+	go w.rateLimitCleanupLoop()
+
 	log.Println("[NetworkMonitor] Started successfully")
 	return nil
+}
+
+// rateLimitCleanupLoop 定期清理过期的五元组限流条目
+func (w *NetworkMonitorWorker) rateLimitCleanupLoop() {
+	ticker := time.NewTicker(rateLimitWindow)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-w.ctx.Done():
+			return
+		case <-ticker.C:
+			w.cleanupRateLimits()
+		}
+	}
 }
 
 // ipUpdateLoop 定期更新本机IP列表
@@ -202,18 +234,9 @@ func (w *NetworkMonitorWorker) handleConntrackEvent(conn conntrack.Con) {
 		return
 	}
 
-	// 生成连接唯一标识
-	key := fmt.Sprintf("%s:%d-%s:%d-%s",
-		info.SrcIP, info.SrcPort, info.DstIP, info.DstPort, info.Protocol)
-
-	// 检查是否已处理过
-	w.mu.Lock()
-	if w.seenConnections[key] {
-		w.mu.Unlock()
+	if !w.allowByRateLimit(info) {
 		return
 	}
-	w.seenConnections[key] = true
-	w.mu.Unlock()
 
 	// 处理新连接
 	w.handleNewConnection(info)
@@ -297,17 +320,47 @@ func (w *NetworkMonitorWorker) scanConnections() {
 			continue
 		}
 
-		// 生成连接唯一标识
-		key := fmt.Sprintf("%s:%d-%s:%d-%s",
-			info.SrcIP, info.SrcPort, info.DstIP, info.DstPort, info.Protocol)
-
-		w.mu.Lock()
-		if !w.seenConnections[key] {
-			w.seenConnections[key] = true
-			w.mu.Unlock()
+		if w.allowByRateLimit(info) {
 			w.handleNewConnection(info)
-		} else {
-			w.mu.Unlock()
+		}
+	}
+}
+
+// allowByRateLimit 判断该五元组是否仍在限流额度内（5 分钟滑动窗口内最多放行 rateLimitMaxCount 次）
+func (w *NetworkMonitorWorker) allowByRateLimit(info *ConnectionInfo) bool {
+	key := fmt.Sprintf("%s:%d-%s:%d-%s",
+		info.SrcIP, info.SrcPort, info.DstIP, info.DstPort, info.Protocol)
+
+	now := time.Now()
+
+	w.rateLimitMu.Lock()
+	defer w.rateLimitMu.Unlock()
+
+	entry, ok := w.rateLimits[key]
+	if !ok || now.Sub(entry.windowStart) >= rateLimitWindow {
+		w.rateLimits[key] = &rateLimitEntry{windowStart: now, count: 1}
+		return true
+	}
+
+	if entry.count >= rateLimitMaxCount {
+		w.droppedByRate.Add(1)
+		return false
+	}
+
+	entry.count++
+	return true
+}
+
+// cleanupRateLimits 清理已过期的限流条目，防止内存无限增长
+func (w *NetworkMonitorWorker) cleanupRateLimits() {
+	now := time.Now()
+
+	w.rateLimitMu.Lock()
+	defer w.rateLimitMu.Unlock()
+
+	for key, entry := range w.rateLimits {
+		if now.Sub(entry.windowStart) >= rateLimitWindow {
+			delete(w.rateLimits, key)
 		}
 	}
 }
@@ -472,23 +525,25 @@ func (w *NetworkMonitorWorker) GetMetrics() (map[string]interface{}, error) {
 	uptime := time.Since(w.startTime)
 	checkCount := w.checkCount.Load()
 	suspiciousCount := w.suspiciousCount.Load()
+	droppedByRate := w.droppedByRate.Load()
 
-	w.mu.RLock()
-	connCount := len(w.seenConnections)
-	w.mu.RUnlock()
+	w.rateLimitMu.Lock()
+	trackedKeys := len(w.rateLimits)
+	w.rateLimitMu.Unlock()
 
 	w.queueMutex.Lock()
 	queueLen := len(w.eventQueue)
 	w.queueMutex.Unlock()
 
 	return map[string]interface{}{
-		"uptime_seconds":   uptime.Seconds(),
-		"check_count":      checkCount,
-		"suspicious_count": suspiciousCount,
-		"connection_count": connCount,
-		"queue_length":     queueLen,
-		"max_queue":        w.maxQueueSize,
-		"healthy":          w.healthy.Load(),
+		"uptime_seconds":     uptime.Seconds(),
+		"check_count":        checkCount,
+		"suspicious_count":   suspiciousCount,
+		"dropped_by_rate":    droppedByRate,
+		"rate_limit_tracked": trackedKeys,
+		"queue_length":       queueLen,
+		"max_queue":          w.maxQueueSize,
+		"healthy":            w.healthy.Load(),
 	}, nil
 }
 
@@ -505,12 +560,12 @@ func (w *NetworkMonitorWorker) HealthCheck() (bool, string) {
 	uptime := time.Since(w.startTime)
 	checkCount := w.checkCount.Load()
 
-	w.mu.RLock()
-	connCount := len(w.seenConnections)
-	w.mu.RUnlock()
+	w.rateLimitMu.Lock()
+	trackedKeys := len(w.rateLimits)
+	w.rateLimitMu.Unlock()
 
-	return true, fmt.Sprintf("uptime=%s checks=%d suspicious=%d connections=%d",
-		uptime.Round(time.Second), checkCount, w.suspiciousCount.Load(), connCount)
+	return true, fmt.Sprintf("uptime=%s checks=%d suspicious=%d dropped_by_rate=%d tracked=%d",
+		uptime.Round(time.Second), checkCount, w.suspiciousCount.Load(), w.droppedByRate.Load(), trackedKeys)
 }
 
 // 实现 gomw 接口

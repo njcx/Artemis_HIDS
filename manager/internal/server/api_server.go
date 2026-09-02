@@ -60,6 +60,7 @@ func NewAPIServer(redisClient *redis.Client, db *mongo.Database) *APIServer {
 	server.setupRoutes()       // 主要路由
 	server.setupConfigRoutes() // 配置管理路由
 	server.setupRuleRoutes()   // 规则管理路由
+	server.setupAssetRoutes()  // 资产识别路由
 	return server
 }
 

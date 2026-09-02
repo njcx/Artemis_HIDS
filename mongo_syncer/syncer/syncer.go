@@ -2,7 +2,6 @@ package syncer
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
@@ -10,284 +9,290 @@ import (
 
 	"mongo_syncer/config"
 	"mongo_syncer/database"
-
-	"github.com/segmentio/kafka-go"
-	"github.com/segmentio/kafka-go/sasl"
-	"github.com/segmentio/kafka-go/sasl/plain"
-	"github.com/segmentio/kafka-go/sasl/scram"
+	oo "mongo_syncer/openobserve"
 )
 
-// Syncer Kafka 到 MongoDB 同步器
+// Syncer OpenObserve 到 MongoDB 定时轮询同步器
 type Syncer struct {
-	config          *config.Config
-	mongodb         *database.MongoDB
-	readers         []*kafka.Reader
-	systemInfoBatch []map[string]interface{}
-	alertBatch      []map[string]interface{}
-	mu              sync.Mutex
-	lastFlush       time.Time
+	config  *config.Config
+	mongodb *database.MongoDB
+	oo      *oo.Client
+
+	// cursors 记录流水型数据（进程/告警）上次轮询到的最大 _timestamp（微秒），用于增量拉取
+	cursors   map[string]int64
+	cursorsMu sync.Mutex
 }
 
 // NewSyncer 创建同步器
 func NewSyncer(cfg *config.Config, mongodb *database.MongoDB) *Syncer {
-	readers := make([]*kafka.Reader, 0, len(cfg.Kafka.Topics))
-
-	// 为每个 topic 创建一个 reader
-	for _, topic := range cfg.Kafka.Topics {
-		readerConfig := kafka.ReaderConfig{
-			Brokers:        cfg.Kafka.Brokers,
-			GroupID:        cfg.Kafka.GroupID,
-			Topic:          topic,
-			MinBytes:       1,
-			MaxBytes:       10e6, // 10MB
-			CommitInterval: time.Second,
-			StartOffset:    kafka.LastOffset,
-			MaxWait:        500 * time.Millisecond,
-		}
-
-		// 配置 SASL 认证
-		if cfg.Kafka.SASL.Enabled && cfg.Kafka.SASL.Username != "" {
-			mechanism, err := getSASLMechanism(
-				cfg.Kafka.SASL.Mechanism,
-				cfg.Kafka.SASL.Username,
-				cfg.Kafka.SASL.Password,
-			)
-			if err != nil {
-				log.Fatalf("创建 SASL 认证失败: %v", err)
-			}
-			readerConfig.Dialer = &kafka.Dialer{
-				SASLMechanism: mechanism,
-				Timeout:       10 * time.Second,
-			}
-			log.Printf("[INFO] Kafka SASL 已启用: mechanism=%s, username=%s",
-				cfg.Kafka.SASL.Mechanism, cfg.Kafka.SASL.Username)
-		}
-
-		reader := kafka.NewReader(readerConfig)
-		readers = append(readers, reader)
-		log.Printf("[INFO] 创建 Kafka reader: topic=%s", topic)
-	}
+	client := oo.NewClient(cfg.OpenObserve.URL, cfg.OpenObserve.Org, cfg.OpenObserve.Username, cfg.OpenObserve.Password)
 
 	return &Syncer{
-		config:          cfg,
-		mongodb:         mongodb,
-		readers:         readers,
-		systemInfoBatch: make([]map[string]interface{}, 0, cfg.Sync.BatchSize),
-		alertBatch:      make([]map[string]interface{}, 0, cfg.Sync.BatchSize),
-		lastFlush:       time.Now(),
+		config:  cfg,
+		mongodb: mongodb,
+		oo:      client,
+		cursors: make(map[string]int64),
 	}
 }
 
-// Start 启动同步器
+// Start 启动轮询循环
 func (s *Syncer) Start(ctx context.Context) {
-	log.Println("[INFO] 启动 Kafka 到 MongoDB 同步器")
+	log.Println("[INFO] 启动 OpenObserve 到 MongoDB 轮询同步器")
 
-	// 启动定时刷新 goroutine
-	go s.periodicFlush(ctx)
-
-	// 为每个 reader 启动多个工作线程
-	var wg sync.WaitGroup
-	for _, reader := range s.readers {
-		for i := 0; i < s.config.Sync.Workers; i++ {
-			wg.Add(1)
-			go func(r *kafka.Reader, workerID int) {
-				defer wg.Done()
-				s.consumeFromReader(ctx, r, workerID)
-			}(reader, i)
-		}
-	}
-
-	// 等待 context 取消
-	<-ctx.Done()
-	log.Println("[INFO] 收到退出信号，停止同步")
-
-	// 刷新剩余批次
-	s.flushBatches(context.Background())
-
-	// 等待所有工作线程结束
-	wg.Wait()
-	log.Println("[INFO] 所有工作线程已停止")
-}
-
-// consumeFromReader 从指定的 reader 消费消息
-func (s *Syncer) consumeFromReader(ctx context.Context, reader *kafka.Reader, workerID int) {
-	topic := reader.Config().Topic
-	log.Printf("[INFO] Worker %d 开始消费 topic: %s", workerID, topic)
-
-	for {
-		select {
-		case <-ctx.Done():
-			log.Printf("[INFO] Worker %d 停止消费 topic: %s", workerID, topic)
-			return
-		default:
-			// 读取消息
-			msg, err := reader.FetchMessage(ctx)
-			if err != nil {
-				if err == context.Canceled {
-					return
-				}
-				log.Printf("[ERROR] Worker %d 读取消息失败 (topic=%s): %v", workerID, topic, err)
-				time.Sleep(time.Second)
-				continue
-			}
-
-			// 解析消息
-			var event map[string]interface{}
-			if err := json.Unmarshal(msg.Value, &event); err != nil {
-				log.Printf("[ERROR] Worker %d 解析消息失败: %v", workerID, err)
-				reader.CommitMessages(ctx, msg)
-				continue
-			}
-
-			// 根据 topic 分类处理
-			if err := s.handleMessage(ctx, topic, event); err != nil {
-				log.Printf("[ERROR] Worker %d 处理消息失败: %v", workerID, err)
-			}
-
-			// 提交偏移量
-			if err := reader.CommitMessages(ctx, msg); err != nil {
-				log.Printf("[ERROR] Worker %d 提交偏移量失败: %v", workerID, err)
-			}
-		}
-	}
-}
-
-// handleMessage 处理消息
-func (s *Syncer) handleMessage(ctx context.Context, topic string, event map[string]interface{}) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	// 根据 topic 名称判断消息类型
-	switch topic {
-	case "hids_events-system_monitor":
-		// 添加到 system_info 批次
-		s.systemInfoBatch = append(s.systemInfoBatch, event)
-
-		// 检查是否需要刷新
-		if len(s.systemInfoBatch) >= s.config.Sync.BatchSize {
-			return s.flushSystemInfoBatch(ctx)
-		}
-
-	case "hids_alerts":
-		// 添加到 alert 批次
-		s.alertBatch = append(s.alertBatch, event)
-
-		// 检查是否需要刷新
-		if len(s.alertBatch) >= s.config.Sync.BatchSize {
-			return s.flushAlertBatch(ctx)
-		}
-
-	default:
-		log.Printf("[WARN] 未知的 topic: %s", topic)
-	}
-
-	return nil
-}
-
-// periodicFlush 定期刷新批次
-func (s *Syncer) periodicFlush(ctx context.Context) {
-	ticker := time.NewTicker(time.Duration(s.config.Sync.FlushInterval) * time.Second)
+	interval := time.Duration(s.config.Sync.PollInterval) * time.Second
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
+	// 启动立即跑一轮，之后按轮询间隔重复
+	s.pollOnce(ctx)
+
 	for {
 		select {
 		case <-ctx.Done():
+			log.Println("[INFO] 收到退出信号，停止轮询")
 			return
 		case <-ticker.C:
-			s.mu.Lock()
-			if time.Since(s.lastFlush) >= time.Duration(s.config.Sync.FlushInterval)*time.Second {
-				s.flushBatches(ctx)
-			}
-			s.mu.Unlock()
+			s.pollOnce(ctx)
 		}
 	}
 }
 
-// flushBatches 刷新所有批次
-func (s *Syncer) flushBatches(ctx context.Context) {
-	s.flushSystemInfoBatch(ctx)
-	s.flushAlertBatch(ctx)
-	s.lastFlush = time.Now()
+// pollOnce 执行一轮完整的同步
+func (s *Syncer) pollOnce(ctx context.Context) {
+	log.Println("[INFO] 开始一轮同步")
+
+	s.syncSystemInfo(ctx)
+	s.syncAlerts(ctx)
+	s.syncPorts(ctx)
+	s.syncPackages(ctx)
+	s.syncContainers(ctx)
+	s.syncProcesses(ctx)
+
+	log.Println("[INFO] 本轮同步完成")
 }
 
-// flushSystemInfoBatch 刷新 system_info 批次
-func (s *Syncer) flushSystemInfoBatch(ctx context.Context) error {
-	if len(s.systemInfoBatch) == 0 {
+// timeRange 返回一个宽泛的时间范围（微秒），用于快照型查询（不依赖游标，只取最新）
+func (s *Syncer) timeRange() (int64, int64) {
+	end := time.Now().UnixMicro()
+	start := time.Now().Add(-24 * time.Hour).UnixMicro()
+	return start, end
+}
+
+// latestPerAgent 对快照型 stream，先查每个 agent_id 的最大 _timestamp，
+// 再针对每个 (agent_id, maxTs) 精确查出那一条完整记录。
+// 1台agent量级下这个"两步查询"策略开销可忽略；OpenObserve 的 SQL 方言对子查询支持不确定，
+// 用这种显式两步的写法更稳妥。
+func (s *Syncer) latestPerAgent(ctx context.Context, stream string) ([]map[string]interface{}, error) {
+	start, end := s.timeRange()
+
+	groupSQL := fmt.Sprintf("SELECT agent_id, MAX(_timestamp) as max_ts FROM %s GROUP BY agent_id", stream)
+	groups, err := s.oo.Search(ctx, groupSQL, start, end)
+	if err != nil {
+		return nil, fmt.Errorf("查询 %s 最新时间戳失败: %w", stream, err)
+	}
+
+	results := make([]map[string]interface{}, 0, len(groups))
+	for _, g := range groups {
+		agentID := oo.ToString(g["agent_id"])
+		maxTs := oo.ToInt64(g["max_ts"])
+		if agentID == "" || maxTs == 0 {
+			continue
+		}
+
+		detailSQL := fmt.Sprintf(
+			"SELECT * FROM %s WHERE agent_id = '%s' AND _timestamp = %d LIMIT 1",
+			stream, escapeSQLString(agentID), maxTs,
+		)
+		hits, err := s.oo.Search(ctx, detailSQL, start, end)
+		if err != nil {
+			log.Printf("[ERROR] 查询 %s 详情失败 (agent_id=%s): %v", stream, agentID, err)
+			continue
+		}
+		if len(hits) > 0 {
+			results = append(results, hits[0])
+		}
+	}
+
+	return results, nil
+}
+
+// escapeSQLString 转义 SQL 字符串里的单引号，防止 agent_id 里出现特殊字符破坏查询语句
+func escapeSQLString(s string) string {
+	result := ""
+	for _, r := range s {
+		if r == '\'' {
+			result += "''"
+		} else {
+			result += string(r)
+		}
+	}
+	return result
+}
+
+// syncSystemInfo 同步系统信息（快照型：hids_system_info -> agents collection）
+func (s *Syncer) syncSystemInfo(ctx context.Context) {
+	hits, err := s.latestPerAgent(ctx, "hids_system_info")
+	if err != nil {
+		log.Printf("[ERROR] 同步系统信息失败: %v", err)
+		return
+	}
+
+	successCount, errorCount := 0, 0
+	for _, hit := range hits {
+		if err := s.mongodb.UpsertSystemInfo(ctx, hit); err != nil {
+			log.Printf("[ERROR] upsert 系统信息失败: %v", err)
+			errorCount++
+		} else {
+			successCount++
+		}
+	}
+	if len(hits) > 0 {
+		log.Printf("[INFO] 系统信息同步: 成功=%d, 失败=%d", successCount, errorCount)
+	}
+}
+
+// syncAlerts 同步告警（流水型：hids_alerts -> agent_security_events collection，不去重）
+func (s *Syncer) syncAlerts(ctx context.Context) {
+	hits := s.fetchIncremental(ctx, "hids_alerts")
+	if len(hits) == 0 {
+		return
+	}
+
+	if err := s.mongodb.BatchInsertAlerts(ctx, hits); err != nil {
+		log.Printf("[ERROR] 批量插入告警失败: %v", err)
+		return
+	}
+	log.Printf("[INFO] 告警同步: %d 条", len(hits))
+}
+
+// syncPorts 同步端口快照（快照型：hids_port_monitor -> agent_ports collection）
+func (s *Syncer) syncPorts(ctx context.Context) {
+	hits, err := s.latestPerAgent(ctx, "hids_port_monitor")
+	if err != nil {
+		log.Printf("[ERROR] 同步端口信息失败: %v", err)
+		return
+	}
+
+	for _, hit := range hits {
+		agentID := oo.ToString(hit["agent_id"])
+		if agentID == "" {
+			continue
+		}
+		ports := oo.ExtractJSONArray(hit["data_ports"])
+		if err := s.mongodb.ReplacePorts(ctx, agentID, ports); err != nil {
+			log.Printf("[ERROR] 替换端口快照失败 (agent_id=%s): %v", agentID, err)
+			continue
+		}
+		log.Printf("[INFO] 端口快照同步: agent_id=%s, count=%d", agentID, len(ports))
+	}
+}
+
+// syncPackages 同步软件包快照（快照型：hids_package_info -> agent_software collection）
+func (s *Syncer) syncPackages(ctx context.Context) {
+	hits, err := s.latestPerAgent(ctx, "hids_package_info")
+	if err != nil {
+		log.Printf("[ERROR] 同步软件包信息失败: %v", err)
+		return
+	}
+
+	for _, hit := range hits {
+		agentID := oo.ToString(hit["agent_id"])
+		if agentID == "" {
+			continue
+		}
+		packages := oo.ExtractJSONArray(hit["data_packages"])
+		packageManager := oo.ToString(hit["data_package_manager"])
+		if err := s.mongodb.ReplaceSoftware(ctx, agentID, packageManager, packages); err != nil {
+			log.Printf("[ERROR] 替换软件快照失败 (agent_id=%s): %v", agentID, err)
+			continue
+		}
+		log.Printf("[INFO] 软件包快照同步: agent_id=%s, count=%d", agentID, len(packages))
+	}
+}
+
+// syncContainers 同步容器快照（快照型：hids_container_info -> agent_containers collection）
+func (s *Syncer) syncContainers(ctx context.Context) {
+	hits, err := s.latestPerAgent(ctx, "hids_container_info")
+	if err != nil {
+		log.Printf("[ERROR] 同步容器信息失败: %v", err)
+		return
+	}
+
+	for _, hit := range hits {
+		agentID := oo.ToString(hit["agent_id"])
+		if agentID == "" {
+			continue
+		}
+		containers := oo.ExtractJSONArray(hit["data_containers"])
+		if err := s.mongodb.ReplaceContainers(ctx, agentID, containers); err != nil {
+			log.Printf("[ERROR] 替换容器快照失败 (agent_id=%s): %v", agentID, err)
+			continue
+		}
+		log.Printf("[INFO] 容器快照同步: agent_id=%s, count=%d", agentID, len(containers))
+	}
+}
+
+// syncProcesses 同步进程信息（流水型：hids_process_monitor -> agent_processes collection，按 (agent_id,pid) upsert）
+func (s *Syncer) syncProcesses(ctx context.Context) {
+	hits := s.fetchIncremental(ctx, "hids_process_monitor")
+	if len(hits) == 0 {
+		return
+	}
+
+	successCount, errorCount := 0, 0
+	for _, hit := range hits {
+		agentID := oo.ToString(hit["agent_id"])
+		if agentID == "" {
+			continue
+		}
+		if err := s.mongodb.UpsertProcess(ctx, agentID, hit); err != nil {
+			errorCount++
+			continue
+		}
+		successCount++
+	}
+	log.Printf("[INFO] 进程同步: 成功=%d, 失败=%d", successCount, errorCount)
+}
+
+// fetchIncremental 按内存游标增量拉取流水型 stream 的新记录，拉取后更新游标
+func (s *Syncer) fetchIncremental(ctx context.Context, stream string) []map[string]interface{} {
+	s.cursorsMu.Lock()
+	lastTs := s.cursors[stream]
+	s.cursorsMu.Unlock()
+
+	now := time.Now().UnixMicro()
+	if lastTs == 0 {
+		lastTs = time.Now().Add(-time.Duration(s.config.Sync.LookbackSecs) * time.Second).UnixMicro()
+	}
+
+	sql := fmt.Sprintf("SELECT * FROM %s WHERE _timestamp > %d ORDER BY _timestamp ASC LIMIT 5000", stream, lastTs)
+	hits, err := s.oo.Search(ctx, sql, lastTs, now)
+	if err != nil {
+		log.Printf("[ERROR] 增量查询 %s 失败: %v", stream, err)
 		return nil
 	}
 
-	batch := s.systemInfoBatch
-	s.systemInfoBatch = make([]map[string]interface{}, 0, s.config.Sync.BatchSize)
-
-	// 释放锁后再执行数据库操作
-	go func() {
-		if err := s.mongodb.BatchUpsertSystemInfo(context.Background(), batch); err != nil {
-			log.Printf("[ERROR] 刷新 system_info 批次失败: %v", err)
-		}
-	}()
-
-	return nil
-}
-
-// flushAlertBatch 刷新 alert 批次
-func (s *Syncer) flushAlertBatch(ctx context.Context) error {
-	if len(s.alertBatch) == 0 {
+	if len(hits) == 0 {
 		return nil
 	}
 
-	batch := s.alertBatch
-	s.alertBatch = make([]map[string]interface{}, 0, s.config.Sync.BatchSize)
-
-	// 释放锁后再执行数据库操作
-	go func() {
-		if err := s.mongodb.BatchInsertAlerts(context.Background(), batch); err != nil {
-			log.Printf("[ERROR] 刷新 alert 批次失败: %v", err)
+	maxTs := lastTs
+	for _, hit := range hits {
+		ts := oo.ToInt64(hit["_timestamp"])
+		if ts > maxTs {
+			maxTs = ts
 		}
-	}()
+	}
 
-	return nil
+	s.cursorsMu.Lock()
+	s.cursors[stream] = maxTs
+	s.cursorsMu.Unlock()
+
+	return hits
 }
 
-// Close 关闭同步器
+// Close 关闭同步器（当前无额外资源需要释放，保留接口兼容 main.go 调用）
 func (s *Syncer) Close() error {
 	log.Println("[INFO] 关闭同步器")
-
-	// 刷新剩余数据
-	s.mu.Lock()
-	s.flushBatches(context.Background())
-	s.mu.Unlock()
-
-	// 关闭所有 readers
-	for _, reader := range s.readers {
-		if err := reader.Close(); err != nil {
-			log.Printf("[ERROR] 关闭 reader 失败: %v", err)
-		}
-	}
-
 	return nil
-}
-
-// getSASLMechanism 获取 SASL 认证机制
-func getSASLMechanism(mechanism, username, password string) (sasl.Mechanism, error) {
-	switch mechanism {
-	case "PLAIN":
-		return &plain.Mechanism{
-			Username: username,
-			Password: password,
-		}, nil
-	case "SCRAM-SHA-256":
-		m, err := scram.Mechanism(scram.SHA256, username, password)
-		if err != nil {
-			return nil, fmt.Errorf("create SCRAM-SHA-256: %w", err)
-		}
-		return m, nil
-	case "SCRAM-SHA-512":
-		m, err := scram.Mechanism(scram.SHA512, username, password)
-		if err != nil {
-			return nil, fmt.Errorf("create SCRAM-SHA-512: %w", err)
-		}
-		return m, nil
-	default:
-		return nil, fmt.Errorf("unsupported SASL mechanism: %s", mechanism)
-	}
 }

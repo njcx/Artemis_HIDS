@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"net"
 	"os"
@@ -73,6 +74,7 @@ type WorkerInstance struct {
 
 type AgentMaster struct {
 	config       *Config
+	configPath   string // 启动时加载配置文件的真实路径，setConfig 保存配置时复用
 	workers      map[string]*WorkerInstance
 	workersMux   sync.RWMutex
 	cgroupMgr    *CGroupManager
@@ -106,6 +108,12 @@ func NewAgentMaster(configPath string) (*AgentMaster, error) {
 	// 加载配置
 	var config *Config
 
+	// 记录绝对路径，供后续 setConfig/saveConfig 复用，避免相对路径随进程工作目录变化而写错位置
+	absConfigPath, err := filepath.Abs(configPath)
+	if err != nil {
+		absConfigPath = configPath
+	}
+
 	// 从文件加载配置
 	data, err := os.ReadFile(configPath)
 	if err != nil {
@@ -138,6 +146,7 @@ func NewAgentMaster(configPath string) (*AgentMaster, error) {
 
 	agentMaster := &AgentMaster{
 		config:      config,
+		configPath:  absConfigPath,
 		workers:     make(map[string]*WorkerInstance),
 		cgroupMgr:   cgroupMgr,
 		dataChannel: make(chan *MonitorData, config.DataBuffSize),
@@ -231,6 +240,7 @@ func (m *AgentMaster) Start() error {
 	if err := m.serverClient.Connect(); err != nil {
 		return fmt.Errorf("connect to server: %v", err)
 	}
+	m.serverClient.executor = NewCommandExecutor(m, m.serverClient.client)
 
 	// 2. 启动所有Worker
 	for _, workerConfig := range m.config.Workers {
@@ -372,7 +382,12 @@ func (m *AgentMaster) dataCollector() {
 func (m *AgentMaster) heartbeat() {
 	defer m.wg.Done()
 
-	ticker := time.NewTicker(30 * time.Second)
+	interval := time.Duration(m.config.ReportInterval) * time.Second
+	if interval <= 0 {
+		interval = 30 * time.Second
+	}
+
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
@@ -383,6 +398,14 @@ func (m *AgentMaster) heartbeat() {
 			status := m.collectStatus()
 			if err := m.serverClient.SendHeartbeat(status); err != nil {
 				log.Printf("Send heartbeat failed: %v", err)
+			}
+
+			// set_config 命令可能已经把 ReportInterval 改到了内存里，检测到变化就重置 ticker，
+			// 不需要重启进程即可让新的心跳间隔生效
+			if newInterval := time.Duration(m.config.ReportInterval) * time.Second; newInterval > 0 && newInterval != interval {
+				interval = newInterval
+				ticker.Reset(interval)
+				log.Printf("Heartbeat interval updated to %s", interval)
 			}
 		}
 	}
@@ -523,6 +546,7 @@ type GRPCClient struct {
 	client     pb.MonitorServiceClient
 	agentID    string
 	hostname   string
+	executor   *CommandExecutor // 处理心跳响应中携带的命令，Start() 里接线
 }
 
 func NewGRPCClient(addr string, tlsConfig *TLSConfig) *GRPCClient {
@@ -965,7 +989,10 @@ func (c *GRPCClient) SendHeartbeat(status map[string]interface{}) error {
 	// 处理服务器返回的命令
 	if len(resp.Commands) > 0 {
 		log.Printf("Received %d commands from server", len(resp.Commands))
-		// TODO: 处理命令
+		if c.executor != nil {
+			// 异步执行，避免 update_agent/uninstall_agent 等耗时命令阻塞心跳循环
+			go c.executor.ProcessCommands(resp.Commands)
+		}
 	}
 
 	// log.Printf("Heartbeat sent successfully")
@@ -977,6 +1004,9 @@ func (c *GRPCClient) SendHeartbeat(status map[string]interface{}) error {
 // ============================================
 
 func main() {
+	configPath := flag.String("config", "config.json", "配置文件路径")
+	flag.Parse()
+
 	// 配置 logrus 日志
 	log.SetFormatter(&log.TextFormatter{
 		FullTimestamp:   true,
@@ -1000,7 +1030,7 @@ func main() {
 		log.Infof("Logging to %s ", logPath)
 	}
 
-	master, err := NewAgentMaster("config.json")
+	master, err := NewAgentMaster(*configPath)
 	if err != nil {
 		log.Fatalf("Create agent master failed: %v", err)
 	}
