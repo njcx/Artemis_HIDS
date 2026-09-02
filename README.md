@@ -4,16 +4,13 @@ Artemis 是一套面向 Linux 主机的入侵检测系统（HIDS），采用 Age
 
 ## 界面预览
 
-<table>
-  <tr>
-    <td><img src="doc/30913d8576da18abb143769f4ea38e77.png" alt="登录页" width="420"/></td>
-    <td><img src="doc/6d15b4ba2f665cc6238e51f89f050747.png" alt="告警详情页" width="420"/></td>
-  </tr>
-  <tr>
-    <td align="center">登录页</td>
-    <td align="center">Web 管理后台 - 告警详情</td>
-  </tr>
-</table>
+登录页：
+
+![登录页](doc/30913d8576da18abb143769f4ea38e77.png)
+
+Web 管理后台 - 告警详情：
+
+![告警详情页](doc/6d15b4ba2f665cc6238e51f89f050747.png)
 
 ## 功能
 
