@@ -31,7 +31,7 @@
           </div>
           <div class="feature-card">
             <span class="feature-icon"><a-icon type="lock" /></span>
-            <span>规则引擎防护</span>
+            <span>高性能规则引擎</span>
           </div>
         </div>
       </div>
