@@ -3,8 +3,6 @@
     <div slot="headerContent">
       <div class="header-info">
         <div class="welcome-text">
-          <h1>Artemis HIDS 安全监控中心</h1>
-          <p class="subtitle">实时监控主机安全状态，快速响应安全威胁</p>
         </div>
       </div>
     </div>
