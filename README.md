@@ -2,6 +2,19 @@
 
 Artemis 是一套面向 Linux 主机的入侵检测系统（HIDS），采用 Agent 上报 + 流式管道处理 + 规则引擎告警的架构。Agent 部署在被保护主机上，采集文件、进程、网络、系统日志等安全事件，经 gRPC 上报至服务端，通过 Kafka 广播给下游的规则引擎与数据落地组件，并提供 Web 管理后台进行统一运维、规则配置、资产识别与告警查看。
 
+## 界面预览
+
+<table>
+  <tr>
+    <td><img src="doc/30913d8576da18abb143769f4ea38e77.png" alt="登录页" width="420"/></td>
+    <td><img src="doc/6d15b4ba2f665cc6238e51f89f050747.png" alt="告警详情页" width="420"/></td>
+  </tr>
+  <tr>
+    <td align="center">登录页</td>
+    <td align="center">Web 管理后台 - 告警详情</td>
+  </tr>
+</table>
+
 ## 功能
 
 - **主机侵入检测**：文件变更监控、进程执行监控、网络连接监控、系统安全日志监控、系统信息采集，覆盖主机侧核心安全事件面。
