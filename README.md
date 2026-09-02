@@ -129,7 +129,7 @@ docker-compose down
 
 构建完成后访问：
 
-- Web 管理后台：`http://<host>/`（Nginx :80，反代 API 到 manager）
+- Web 管理后台：`http://<host>:8086/`（Nginx反代 API 到 manager）
 - Agent 安装包下载：`http://<host>:8081/artemis-agent.tar.gz`
 
 首次生成的随机凭证会打印在 `./build.sh` 执行日志中，也可在生成的 `.env` 文件中查看。
