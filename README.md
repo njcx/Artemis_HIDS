@@ -21,7 +21,7 @@ Web 管理后台 - 告警详情：
 - **事件归档**：事件与告警数据同步落地到 MongoDB，支持历史查询与审计。
 - **Web 管理后台**：Agent 管理（含单个/批量升级、卸载、配置热更新）、规则配置、资产识别、告警查看等操作界面，前后端分离。
 - **Agent 全生命周期管理**：Agent 自身支持多 worker 进程编排、资源限额、TLS 双向认证，并支持通过 manager 远程下发配置更新、二进制自升级（含各 Worker 独立升级）与远程卸载。
-- **一键部署**：Docker Compose 编排全部组件，首次启动自动生成随机凭证（Mongo/Redis/Kafka/OpenObserve），无需手动配置明文*。
+- **一键部署**：Docker Compose 编排全部组件，首次启动自动生成随机凭证（Mongo/Redis/Kafka/OpenObserve），无需手动配置明文账密。
 
 ## 架构
 
